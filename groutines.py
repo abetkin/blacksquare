@@ -8,7 +8,7 @@ import types
 
 from contextlib import contextmanager
 
-class Empty(object): pass
+class ExplicitNone(object): pass
 
 class ForceReturn(object):
     def __init__(self, value):
@@ -48,27 +48,28 @@ class GreenWrapper(object):
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
         enter_evt = FunctionCall('ENTER', wrapped, instance, args, kwargs)
-        rv = Empty
+        rv = None
+        if wrapped.__name__ == 'pre_save':
+            import ipdb; ipdb.set_trace()
         for gr in self.listeners:
             _rv = gr.switch(enter_evt)
             if isinstance(_rv, ForceReturn):
                 return _rv
-            elif _rv is not Empty:
+            elif _rv is not None:
                 rv = _rv
-        if rv is not Empty:
-            return rv
+        if rv is not None:
+            return rv if rv is not ExplicitNone else None
 
         rv = wrapped(*args, **kwargs)
         
         exit_evt = FunctionCall('EXIT', wrapped, instance, args, kwargs, rv)
-        rv = Empty
         for gr in self.listeners:
             _rv = gr.switch(exit_evt)
             if isinstance(_rv, ForceReturn):
                 return _rv
-            elif _rv is not Empty:
+            elif _rv is not None:
                 rv = _rv
-        return rv
+        return rv if rv is not ExplicitNone else None
 
 
 class FunctionCall(object):
@@ -78,7 +79,7 @@ class FunctionCall(object):
     ``typ`` can be 'ENTER' or 'EXIT'.
     '''
     
-    def __init__(self, typ, wrapped, instance, args, kwargs, rv=Empty):
+    def __init__(self, typ, wrapped, instance, args, kwargs, rv=None):
         self.type = typ
         self._callabl = wrapped
         self._instance = instance
@@ -88,7 +89,7 @@ class FunctionCall(object):
         self._greenlet = greenlet.getcurrent()
 
     def __iter__(self):
-        if self.instance:
+        if self._instance:
             args = (self._instance,) + self._args
         else:
             args = self._args
@@ -100,7 +101,10 @@ class FunctionCall(object):
     
     def force_rv(self, value):
         self._greenlet.switch(ForceReturn(value))
-
+    
+    def return_None(self):
+        self.set_rv(ExplicitNone)
+        
 @contextmanager
 def wait_fcall(target, typ='EXIT', condition=None):
     g_self = greenlet.getcurrent()
@@ -109,7 +113,7 @@ def wait_fcall(target, typ='EXIT', condition=None):
         gwrapper.apply()
 
     while True:
-        evt = g_self.parent.switch(Empty)
+        evt = g_self.parent.switch(None)
         if evt.type != typ:
             continue
         if condition and not condition(evt):
