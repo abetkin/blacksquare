@@ -7,13 +7,18 @@ import greenlet
 import types
 import ipdb
 
-from contextlib import contextmanager
-
 class ExplicitNone(object): pass
 
 class ForceReturn(object):
     def __init__(self, value):
-        self.rv = value
+        self.value = value
+
+def switch(*args, **kw):
+    '''
+    Switch to parent, a shortcut.
+    '''
+    return greenlet.getcurrent().parent.switch(*args, **kw)
+
 
 class Event(object):
     '''
@@ -34,12 +39,31 @@ class Event(object):
         self.listeners = set()
         Event.instances[name] = self
     
-    @contextmanager
+    def fire(self, *args, **kwargs):
+        if len(args) == 1 and isinstance(args[0], Kwartuple):
+            value = args[0]
+        else:
+            value = Kwartuple(args, **kwargs)
+            
+        def _values():
+            for listener in tuple(self.listeners):
+                listener._greenlet.parent = greenlet.getcurrent()
+                yield listener.switch(value)
+        return self.process_switches(_values())
+    
+    def process_switches(self, values_iter):
+        '''
+        Process values listeners switched back with.
+        '''
+        for value in values_iter:
+            if value is not None: return value
+    
     def wait(self, condition=None):
         listener = Listener(condition)
         self.listeners.add(listener)
-        yield greenlet.getcurrent().parent.switch(None)
+        evt = greenlet.getcurrent().parent.switch()
         self.listeners.remove(listener)
+        return evt
 
 class FunctionCall(Event):
     '''
@@ -55,100 +79,85 @@ class FunctionCall(Event):
         super(FunctionCall, self).__init__(target)
     
     @property
-    def is_applied(self):
+    def is_active(self):
         return getattr(self._target_parent, self._target_attribute) != self._target
     
-    def apply(self):
+    def activate(self):
+        '''
+        Place wrapper instead of the target callable.
+        '''
         setattr(self._target_parent, self._target_attribute, self(self._target))
     
-    def restore(self):
+    def deactivate(self):
+        '''
+        Put target callable on it's place back.
+        '''
         setattr(self._target_parent, self._target_attribute, self._target)
     
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
         all_args = (instance,) + args if instance else args
-        enter_info = CallInfo(all_args,
-                kwargs=dict(kwargs, type='ENTER', callable=wrapped))
-        rv = None
-        
-        for listener in self.listeners:
-            _rv = listener.send(enter_info)
-            if isinstance(_rv, ForceReturn):
-                return _rv
-            elif _rv is not None:
-                rv = _rv
-        if rv is not None:
-            return rv if rv is not ExplicitNone else None
+        enter_value = self.fire(all_args,
+                **dict(kwargs, type='ENTER', callable=wrapped))
+        if enter_value is not None:
+            return enter_value if enter_value is not ExplicitNone else None
 
         rv = wrapped(*args, **kwargs)
         
-        exit_info = CallInfo(all_args,
-                kwargs=dict(kwargs, type='EXIT', callable=wrapped, rv=rv))
-        for listener in self.listeners:
-            _rv = listener.send(exit_info)
-            if isinstance(_rv, ForceReturn):
-                return _rv
-            elif _rv is not None:
-                rv = _rv
+        exit_value = self.fire(all_args,
+                **dict(kwargs, type='EXIT', callable=wrapped, rv=rv))
+        rv = exit_value or rv
         return rv if rv is not ExplicitNone else None
 
-    @contextmanager
     def wait(self, typ='EXIT', condition=None):
-        if not self.is_applied:
-            self.apply()
+        if not self.is_active:
+            self.activate()
         def _condition(evt):
             if evt.type != typ:
                 return
             if condition and not condition(evt):
                 return
             return True
-        with super(FunctionCall, self).wait(_condition) as evt:
-            yield evt
+        evt = super(FunctionCall, self).wait(_condition)
         if not self.listeners:
-            self.restore()
+            self.deactivate()
+        return evt
+
+    def process_switches(self, values_iter):
+        values = []
+        for value in values_iter:
+            if isinstance(value, ForceReturn):
+                return value.value
+            values.append(value)
+        return super(FunctionCall, self).process_switches(values)
 
 
-class KwaTuple(tuple):
+class Kwartuple(tuple):
     '''
-    Mutable tuple that is initialized from the dict of kwargs.
+    Tuple which initializes it's __dict__
+    with keyword arguments passed to constructor.
     '''
     
     def __new__(cls, *args, **kwargs):
-        kwa = kwargs.pop('kwargs', {})
-        obj = super(KwaTuple, cls).__new__(cls, *args, **kwargs)
-        obj.__dict__.update(kwa)
+        obj = super(Kwartuple, cls).__new__(cls, *args)
+        obj.__dict__.update(kwargs)
         return obj
 
 
-class CallInfo(KwaTuple):
-    '''
-    Info about a function call is a kwatuple (i.e. args + kwargs)
-    + methods that allow to override function's return value.
-    '''
-    
-    def __init__(self, *args, **kw):
-        self._greenlet = greenlet.getcurrent()
-    
-    def set_rv(self, value):
-        res =  self._greenlet.switch(value)
-        return res
-    
-    def force_rv(self, value):
-        return self._greenlet.switch(ForceReturn(value))
-    
-    def return_None(self):
-        return self.set_rv(ExplicitNone)
-
-
 class Listener(object):
+    ignore_exc = False
+    
     def __init__(self, condition=None):
         self.condition = condition
         self._greenlet = greenlet.getcurrent()
     
-    def send(self, value):
+    def switch(self, value):
         if self.condition and not self.condition(value):
             return
-        return self._greenlet.switch(value)
+        try:
+            return self._greenlet.switch(value)
+        except:
+            if not self.ignore_exc: raise
 
 def start_all(greenlets):
     for gr in greenlets:
@@ -178,13 +187,26 @@ if __name__ == '__main__':
             for value in self.start(), self.middle(), self.end():
                 self.a += value
             return self.a
-    
+
+#    
     def a_greenlet(*args):
-        with FunctionCall('__main__.SomeClass.middle').wait() as evt:
-            evt.set_rv(10)
+        print '!', args
+        evt = FunctionCall('__main__.SomeClass.middle').wait()
+        
+        if evt.rv > 1:
+            Event('OLD_VALUE').fire(value=evt.rv)
+        switch(10)
+#        switch(ForceReturn(9))
+        
+        
+        
+    def big_value(*args):
+        evt = Event('OLD_VALUE').wait()
+        print evt.value
 #    
 #    with ipdb.launch_ipdb_on_exception():
-    start_all([a_greenlet])
+    start_all([a_greenlet, big_value
+                ])
     
     o = SomeClass()
     print o.go()
