@@ -58,7 +58,6 @@ class Listener(object):
         return self
     
     def __exit__(self, *exc_info):
-        print 'exit'
         self.event.listeners.remove(self)
     
     __str__ = __repr__ = lambda self: 'listener: %s' % self.event.name
@@ -149,48 +148,41 @@ class CallableWrapper(object):
     Wraps a callable. Calls respective events (``event``) before and after
     the target call. Events sent differ in ``type`` argument:
     'ENTER' and 'EXIT' respectively.
+
     '''
     
     def __init__(self, event, target):
         self.event = event
         self._target_parent, self._target = object_from_name(target)
         self._target_attribute = target.split('.')[-1]
+        self.patched = False
 
 
     def patch(self):
         '''
         Replace original with wrapper.
         '''
-        setattr(self._target_parent, self._target_attribute, self(self._target)) 
+        setattr(self._target_parent, self._target_attribute, self(self._target))
+        self.patched = True
     
     def restore(self):
         '''
         Put original callable on it's place back.
         '''
         setattr(self._target_parent, self._target_attribute, self._target)
-
-    @property
-    def patched(self):
-        '''
-        Whether the patch is applied.
-        '''
-        target = getattr(self._target_parent, self._target_attribute)
-        return target is not self._target
-    
+        self.patched = False
         
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
-        '''
-        '''
         all_args = (instance,) + args if instance else args
-        enter_value = self.event.fire(all_args,
+        enter_value = self.event.fire(*all_args,
                 **dict(kwargs, type='ENTER', callable=wrapped))
         if enter_value is not None:
             return enter_value if enter_value is not ExplicitNone else None
 
         rv = wrapped(*args, **kwargs)
         
-        exit_value = self.event.fire(all_args,
+        exit_value = self.event.fire(*all_args,
                 **dict(kwargs, type='EXIT', callable=wrapped, rv=rv))
         rv = exit_value or rv
         return rv if rv is not ExplicitNone else None
@@ -228,6 +220,7 @@ class Kwartuple(tuple):
     '''
     
     def __new__(cls, *args, **kwargs):
+#        ipdb.set_trace()
         obj = super(Kwartuple, cls).__new__(cls, *args)
         obj.__dict__.update(kwargs)
         return obj
@@ -241,6 +234,10 @@ def make_groutine(func):
         f = func
     else:
         event = kwargs['event']
+        if not isinstance(event, Event):
+            # saves typing, but probably too unrestrictive
+            event = Event(event)
+        
         listener_kwargs = kwargs['listener_kwargs']
         should_stop = (itertools.count() if kwargs['once']
                        else itertools.repeat(0))
