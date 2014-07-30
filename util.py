@@ -20,3 +20,6 @@ def object_from_name(name, module=None):
     for part in parts:
         parent, obj = obj, getattr(obj, part)
     return parent, obj
+
+class Counter(object): pass
+    

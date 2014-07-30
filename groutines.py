@@ -5,7 +5,12 @@ from util import object_from_name
 import wrapt
 import greenlet
 import types
+import itertools
+from contextlib import contextmanager
+
 import ipdb
+
+from util import Counter
 
 class ExplicitNone(object): pass
 
@@ -13,11 +18,76 @@ class ForceReturn(object):
     def __init__(self, value):
         self.value = value
 
+'''
+Since we presume our program single-threaded, ``switch_counter``
+will tell us whether switch() was called in some piece of code or not.
+'''
+switch_counter = 0
+
 def switch(*args, **kw):
     '''
     Switch to parent, a shortcut.
     '''
+    global switch_counter
+    switch_counter += 1
     return greenlet.getcurrent().parent.switch(*args, **kw)
+
+
+
+class Listener(object):
+    '''
+    Listens to an event.
+    '''
+    ignore_exc = False
+    
+    def __init__(self, event, condition=None, grinlet=None):
+        self.event = event
+        self.condition = condition
+        self._greenlet = grinlet or greenlet.getcurrent()
+    
+    # TODO: accept / throw
+    def switch(self, value):
+        if self.condition and not self.condition(value):
+            return
+        try:
+            
+            return self._greenlet.switch(value)
+        except:
+            if not self.ignore_exc: raise
+        
+        # TODO: process_exception
+
+    def __enter__(self):
+        self.event.listeners.add(self)
+        return self
+    
+    def __exit__(self, *exc_info):
+        print 'exit'
+        self.event.listeners.remove(self)
+
+
+class CallListener(Listener):
+    
+    def __init__(self, event, typ='EXIT', condition=None, grinlet=None):
+        
+        def _condition(value):
+            if value.type != typ:
+                return
+            if condition and not condition(value):
+                return
+            return True
+
+        super(CallListener, self).__init__(event, _condition, grinlet) 
+    
+    def __enter__(self):
+        if not self.event.is_active:
+            self.event.activate()
+        return super(CallListener, self).__enter__()
+    
+    def __exit__(self, *exc_info):
+        if not self.event.listeners:
+            self.event.deactivate()
+        super(CallListener, self).__exit__(*exc_info)
 
 
 class Event(object):
@@ -26,6 +96,7 @@ class Event(object):
     and has a set of listeners.
     '''
     instances = {}
+    listener_class = Listener
     
     def __new__(cls, name, *args, **kw):
         if name in Event.instances:
@@ -59,11 +130,16 @@ class Event(object):
             if value is not None: return value
     
     def wait(self, condition=None):
-        listener = Listener(condition)
-        self.listeners.add(listener)
-        evt = greenlet.getcurrent().parent.switch()
-        self.listeners.remove(listener)
-        return evt
+        with self.listener_class(self, condition):
+            return switch()
+        
+#    def wait(self, condition=None):
+#        listener = Listener(self, condition=)
+#        self.listeners.add(listener)
+#        evt = greenlet.getcurrent().parent.switch()
+#        self.listeners.remove(listener)
+#        return evt 
+
 
 class FunctionCall(Event):
     '''
@@ -71,6 +147,8 @@ class FunctionCall(Event):
     (listeners) subscribed to it.
     Event's name is callable's absolute import path (str).
     '''
+
+    listener_class = CallListener
 
     def __init__(self, target):
         if target not in Event.instances:
@@ -86,7 +164,7 @@ class FunctionCall(Event):
         '''
         Place wrapper instead of the target callable.
         '''
-        setattr(self._target_parent, self._target_attribute, self(self._target))
+        setattr(self._target_parent, self._target_attribute, self(self._target)) 
     
     def deactivate(self):
         '''
@@ -109,20 +187,25 @@ class FunctionCall(Event):
         rv = exit_value or rv
         return rv if rv is not ExplicitNone else None
 
-    def wait(self, typ='EXIT', condition=None):
-        if not self.is_active:
-            self.activate()
-        def _condition(evt):
-            if evt.type != typ:
-                return
-            if condition and not condition(evt):
-                return
-            return True
-        evt = super(FunctionCall, self).wait(_condition)
-        if not self.listeners:
-            self.deactivate()
-        return evt
+#    def wait(self, typ='EXIT', condition=None):
+#        if not self.is_active:
+#            self.activate()
+#        def _condition(evt):
+#            if evt.type != typ:
+#                return
+#            if condition and not condition(evt):
+#                return
+#            return True
+#        evt = super(FunctionCall, self).wait(_condition)
+#        if not self.listeners:
+#            self.deactivate()
+#        return evt
 
+    def wait(self, typ='EXIT', condition=None):
+        with self.listener_class(self, typ, condition):
+            return switch()
+
+    # XXX process_thrown_values ?
     def process_switches(self, values_iter):
         values = []
         for value in values_iter:
@@ -144,30 +227,29 @@ class Kwartuple(tuple):
         return obj
 
 
-class Listener(object):
-    ignore_exc = False
-    
-    def __init__(self, condition=None):
-        self.condition = condition
-        self._greenlet = greenlet.getcurrent()
-    
-    def switch(self, value):
-        if self.condition and not self.condition(value):
-            return
-        try:
-            return self._greenlet.switch(value)
-        except:
-            if not self.ignore_exc: raise
-
-def start_all(greenlets):
-    for gr in greenlets:
-        if type(gr) is types.FunctionType:
-            gr = greenlet.greenlet(gr)
-        gr.switch()
-
+def make_groutine(func):
+    assert hasattr(func, '_groutine'), 'Groutine should be marked with a decorator'
+    kwargs = func._groutine
+    if kwargs['event']:
+        should_stop = (itertools.count() if kwargs['once']
+                       else itertools.repeat(0))
+        def f():
+            with kwargs['event'].listener_class(kwargs['event']):
+                while not next(should_stop):
+                    value = switch()
+                    func(*value, **value.__dict__)
+    else:
+        f = func
+    grinlet = greenlet.greenlet(f)
+    grinlet.switch()
+    return grinlet
 
     
 if __name__ == '__main__':
+    
+    def start_all(funcs):
+        for f in funcs:
+            make_groutine(f)
     
     class SomeClass(object):
         
@@ -188,28 +270,36 @@ if __name__ == '__main__':
                 self.a += value
             return self.a
 
-#    
-    def a_greenlet(*args):
-        print '!', args
-        evt = FunctionCall('__main__.SomeClass.middle').wait()
-        
-        if evt.rv > 1:
+
+#    @listener(FunctionCall('__main__.Counter'))
+#    def patch(*args, **kwargs):
+#        switch(10)
+
+    from dec import groutine
+    
+    @groutine()
+    def a_greenlet():
+        evt = FunctionCall('__main__.Counter').wait()
+        for i in range(5):
             Event('OLD_VALUE').fire(value=evt.rv)
-        switch(10)
-#        switch(ForceReturn(9))
+        switch(ForceReturn(9))
         
         
-        
-    def big_value(*args):
-        evt = Event('OLD_VALUE').wait()
-        print evt.value
+#    @groutine()
+#    def big_value():
+#        evt = Event('OLD_VALUE').wait()
+#        print evt.value
+    
+    @groutine(event=Event('OLD_VALUE'), once=False)
+    def big_value(value):
+        print '!', value
 #    
 #    with ipdb.launch_ipdb_on_exception():
     start_all([a_greenlet, big_value
                 ])
-    
-    o = SomeClass()
-    print o.go()
+    o = Counter()
+    print o
+
 
 
     
