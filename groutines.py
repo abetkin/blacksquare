@@ -7,6 +7,7 @@ import greenlet
 import types
 import itertools
 from contextlib import contextmanager
+import collections
 
 import ipdb
 
@@ -18,44 +19,39 @@ class ForceReturn(object):
     def __init__(self, value):
         self.value = value
 
-'''
-Since we presume our program single-threaded, ``switch_counter``
-will tell us whether switch() was called in some piece of code or not.
-'''
-switch_counter = 0
-
-def switch(*args, **kw):
+def switch(value=None):
     '''
-    Switch to parent, a shortcut.
+    Global function: switch values with parent greenlet.
     '''
-    global switch_counter
-    switch_counter += 1
-    return greenlet.getcurrent().parent.switch(*args, **kw)
-
+    rv = greenlet.getcurrent().parent.switch(value)
+    
+    # since it's global function and
+    # we presume our programs single-threaded
+    # logging swiches may be helpful.
+    switch_logger.add(value, rv)
+    return rv
 
 
 class Listener(object):
     '''
     Listens to an event.
     '''
-    ignore_exc = False
     
     def __init__(self, event, condition=None, grinlet=None):
         self.event = event
         self.condition = condition
         self._greenlet = grinlet or greenlet.getcurrent()
     
-    # TODO: accept / throw
     def switch(self, value):
         if self.condition and not self.condition(value):
             return
         try:
-            
             return self._greenlet.switch(value)
-        except:
-            if not self.ignore_exc: raise
+        except Exception as exc:
+            self.handle_exception(exc)
         
-        # TODO: process_exception
+    def handle_exception(self, exc):
+        raise exc
 
     def __enter__(self):
         self.event.listeners.add(self)
@@ -64,6 +60,8 @@ class Listener(object):
     def __exit__(self, *exc_info):
         print 'exit'
         self.event.listeners.remove(self)
+    
+    __str__ = __repr__ = lambda self: 'listener: %s' % self.event.name
 
 
 class CallListener(Listener):
@@ -80,13 +78,13 @@ class CallListener(Listener):
         super(CallListener, self).__init__(event, _condition, grinlet) 
     
     def __enter__(self):
-        if not self.event.is_active:
-            self.event.activate()
+        if not self.event.callable_wrapper.patched:
+            self.event.callable_wrapper.patch()
         return super(CallListener, self).__enter__()
     
     def __exit__(self, *exc_info):
         if not self.event.listeners:
-            self.event.deactivate()
+            self.event.callable_wrapper.restore()
         super(CallListener, self).__exit__(*exc_info)
 
 
@@ -120,99 +118,107 @@ class Event(object):
             for listener in tuple(self.listeners):
                 listener._greenlet.parent = greenlet.getcurrent()
                 yield listener.switch(value)
-        return self.process_switches(_values())
+        return self.process_responses(_values())
     
-    def process_switches(self, values_iter):
+    def process_responses(self, values_iter):
         '''
-        Process values listeners switched back with.
+        Process values listeners switch back with
+        in response to fired events.
         '''
         for value in values_iter:
             if value is not None: return value
     
-    def wait(self, condition=None):
-        with self.listener_class(self, condition):
-            return switch()
-        
-#    def wait(self, condition=None):
-#        listener = Listener(self, condition=)
-#        self.listeners.add(listener)
-#        evt = greenlet.getcurrent().parent.switch()
-#        self.listeners.remove(listener)
-#        return evt 
-
-
-class FunctionCall(Event):
-    '''
-    A wrapper around a callable, allowing it to communicate with greenlets
-    (listeners) subscribed to it.
-    Event's name is callable's absolute import path (str).
-    '''
-
-    listener_class = CallListener
-
-    def __init__(self, target):
-        if target not in Event.instances:
-            self._target_parent, self._target = object_from_name(target)
-            self._target_attribute = target.split('.')[-1]
-        super(FunctionCall, self).__init__(target)
-    
-    @property
-    def is_active(self):
-        return getattr(self._target_parent, self._target_attribute) != self._target
-    
-    def activate(self):
+    def listen(self, *args, **kwargs):
         '''
-        Place wrapper instead of the target callable.
+        Create a listener. 
+        '''
+        return self.listener_class(self, *args, **kwargs)
+    
+    def wait(self, *listener_args, **listener_kwargs):
+        '''
+        Shortcut. Listens only until the first firing of the event.
+        
+        Makes values switch with the listener groutine.
+        '''
+        with self.listen(*listener_args, **listener_kwargs):
+            return switch()
+
+
+class CallableWrapper(object):
+    '''
+    Wraps a callable. Calls respective events (``event``) before and after
+    the target call. Events sent differ in ``type`` argument:
+    'ENTER' and 'EXIT' respectively.
+    '''
+    
+    def __init__(self, event, target):
+        self.event = event
+        self._target_parent, self._target = object_from_name(target)
+        self._target_attribute = target.split('.')[-1]
+
+
+    def patch(self):
+        '''
+        Replace original with wrapper.
         '''
         setattr(self._target_parent, self._target_attribute, self(self._target)) 
     
-    def deactivate(self):
+    def restore(self):
         '''
-        Put target callable on it's place back.
+        Put original callable on it's place back.
         '''
         setattr(self._target_parent, self._target_attribute, self._target)
+
+    @property
+    def patched(self):
+        '''
+        Whether the patch is applied.
+        '''
+        target = getattr(self._target_parent, self._target_attribute)
+        return target is not self._target
     
+        
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
+        '''
+        '''
         all_args = (instance,) + args if instance else args
-        enter_value = self.fire(all_args,
+        enter_value = self.event.fire(all_args,
                 **dict(kwargs, type='ENTER', callable=wrapped))
         if enter_value is not None:
             return enter_value if enter_value is not ExplicitNone else None
 
         rv = wrapped(*args, **kwargs)
         
-        exit_value = self.fire(all_args,
+        exit_value = self.event.fire(all_args,
                 **dict(kwargs, type='EXIT', callable=wrapped, rv=rv))
         rv = exit_value or rv
         return rv if rv is not ExplicitNone else None
 
-#    def wait(self, typ='EXIT', condition=None):
-#        if not self.is_active:
-#            self.activate()
-#        def _condition(evt):
-#            if evt.type != typ:
-#                return
-#            if condition and not condition(evt):
-#                return
-#            return True
-#        evt = super(FunctionCall, self).wait(_condition)
-#        if not self.listeners:
-#            self.deactivate()
-#        return evt
 
-    def wait(self, typ='EXIT', condition=None):
-        with self.listener_class(self, typ, condition):
-            return switch()
 
-    # XXX process_thrown_values ?
-    def process_switches(self, values_iter):
+class FunctionCall(Event):
+    '''
+    Is fired when target callable is called (event's name is callable's
+    import path).
+    
+    ``callable_wrapper`` is responsible for the respective patching.
+    '''
+
+    listener_class = CallListener
+
+    def __init__(self, name):
+        if name not in Event.instances:
+            self.callable_wrapper = CallableWrapper(self, name)
+        super(FunctionCall, self).__init__(name)
+
+    def process_responses(self, values_iter):
         values = []
         for value in values_iter:
             if isinstance(value, ForceReturn):
                 return value.value
             values.append(value)
-        return super(FunctionCall, self).process_switches(values)
+        return super(FunctionCall, self).process_responses(values)
 
 
 class Kwartuple(tuple):
@@ -228,21 +234,47 @@ class Kwartuple(tuple):
 
 
 def make_groutine(func):
+    # XXX: refactor to class?
     assert hasattr(func, '_groutine'), 'Groutine should be marked with a decorator'
     kwargs = func._groutine
-    if kwargs['event']:
+    if not kwargs['event']:
+        f = func
+    else:
+        event = kwargs['event']
+        listener_kwargs = kwargs['listener_kwargs']
         should_stop = (itertools.count() if kwargs['once']
                        else itertools.repeat(0))
         def f():
-            with kwargs['event'].listener_class(kwargs['event']):
+            with event.listen(**listener_kwargs):
+                value = switch()
                 while not next(should_stop):
-                    value = switch()
+                    P = switch_logger.count
                     func(*value, **value.__dict__)
-    else:
-        f = func
+                    if switch_logger.count > P:
+                        value = switch_logger[-1][1] # last logged value
+                    elif not kwargs['once']:
+                        value = switch()
+
     grinlet = greenlet.greenlet(f)
-    grinlet.switch()
+    grinlet.switch() # ignore switched value
     return grinlet
+
+
+class SwitchLogger(object):
+    
+    def __init__(self, maxlen=10):
+        self.deque = collections.deque(maxlen=maxlen)
+        self._counter = itertools.count()
+        self.count = next(self._counter)
+    
+    def add(self, forth, back):
+        self.deque.append((forth, back))
+        self.count = next(self._counter)
+    
+    def __getitem__(self,key):
+        return self.deque[key]
+
+switch_logger = SwitchLogger(100)
 
     
 if __name__ == '__main__':
@@ -271,17 +303,14 @@ if __name__ == '__main__':
             return self.a
 
 
-#    @listener(FunctionCall('__main__.Counter'))
-#    def patch(*args, **kwargs):
-#        switch(10)
-
     from dec import groutine
     
     @groutine()
     def a_greenlet():
         evt = FunctionCall('__main__.Counter').wait()
         for i in range(5):
-            Event('OLD_VALUE').fire(value=evt.rv)
+            e = Event('OLD_VALUE')
+            val = e.fire(value=i)
         switch(ForceReturn(9))
         
         
@@ -292,13 +321,18 @@ if __name__ == '__main__':
     
     @groutine(event=Event('OLD_VALUE'), once=False)
     def big_value(value):
-        print '!', value
+#        switch(value + 1)
+        print(value + 1)
 #    
 #    with ipdb.launch_ipdb_on_exception():
     start_all([a_greenlet, big_value
                 ])
     o = Counter()
-    print o
+#    for i in switch_logger.deque: print i
+    
+#%%
+#def f(*args)
+#%%
 
 
 
