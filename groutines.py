@@ -153,10 +153,24 @@ class CallableWrapper(object):
 
     '''
     
-    def __init__(self, event, target):
+#    def __init__(self, event, target):
+#        self.event = event
+#        if isinstance(target, tuple):
+#            # TODO: probably will be able to figure that out
+#            #       just from target callable, and get rid of tuple.
+#            self._target_parent, self._target_attribute = target
+#            self._target = getattr(self._target_parent, self._target_attribute)
+#        else:
+#            # target is of string type
+#            self._target_parent, self._target = object_from_name(target)
+#            self._target_attribute = target.split('.')[-1]
+#        self.patched = False
+
+    def __init__(self, event, target_container, target_attr):
         self.event = event
-        self._target_parent, self._target = object_from_name(target)
-        self._target_attribute = target.split('.')[-1]
+        self._target_parent = target_container
+        self._target_attribute = target_attr
+        self._target = getattr(target_container, target_attr)
         self.patched = False
 
 
@@ -200,10 +214,20 @@ class FunctionCall(Event):
 
     listener_class = CallListener
 
-    def __init__(self, name):
-        if name not in Event.instances:
-            self.callable_wrapper = CallableWrapper(self, name)
+    def __init__(self, *args):
+        if len(args) == 1 and isinstance(args[0], str):
+            name = args[0]
+            if name in Event.instances:
+                return
+            target_container, target_attr, _ = object_from_name(name) 
+        else:
+            target_container, target_attr = args
+            name = '.'.join((target_container.__name__, target_attr))
+        if name in Event.instances:
+            return
         super(FunctionCall, self).__init__(name)
+        self.callable_wrapper = CallableWrapper(self, target_container,
+                                                target_attr)   
 
     def process_responses(self, values_iter):
         values = []
@@ -346,7 +370,8 @@ if __name__ == '__main__':
     
     @groutine()
     def a_greenlet():
-        evt = FunctionCall('__main__.Counter').wait()
+        evt = FunctionCall(SomeClass, 'middle').wait()
+#        evt = FunctionCall('__main__.SomeClass.middle').wait()
         for i in range(5):
             e = Event('OLD_VALUE')
             print e.fire(value=i)
@@ -366,8 +391,8 @@ if __name__ == '__main__':
 #    with ipdb.launch_ipdb_on_exception():
     start_all([a_greenlet, big_value
                 ])
-    o = Counter()
-    print o
+    o = SomeClass()
+    print o.go()
 #    for i in switch_logger.deque: print i
     
 #%%

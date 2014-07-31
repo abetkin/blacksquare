@@ -19,7 +19,7 @@ def object_from_name(name, module=None):
     obj = module
     for part in parts:
         parent, obj = obj, getattr(obj, part)
-    return parent, obj
+    return parent, part, obj
 
 class Counter(object): pass
     
