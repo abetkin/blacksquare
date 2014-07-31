@@ -109,11 +109,10 @@ class Event(object):
         Event.instances[name] = self
     
     def fire(self, *args, **kwargs):
-        if len(args) == 1 and getattr(args[0].__class__,
-                                      'implements_event_result', False):
+        if len(args) == 1 and isinstance(args[0], Kwartuple):
             value = args[0]
         else:
-            value = Kwartuple(args, **kwargs)
+            value = Kwartuple(*args, **kwargs)
             
         def _values():
             for listener in tuple(self.listeners):
@@ -190,15 +189,15 @@ class CallableWrapper(object):
         
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
-        enter_info = CallInfo(wrapped, args, kwargs,
-                             {'type': 'ENTER', 'callable': wrapped})
+        enter_info = CallInfo(*args, type='ENTER', callable=wrapped, instance=instance,
+                              argnames=self.event._argnames, **kwargs)
         enter_value = self.event.fire(enter_info)
         if enter_value is not None:
             return enter_value if enter_value is not ExplicitNone else None
 
         rv = wrapped(*args, **kwargs)
-        exit_info = CallInfo(wrapped, args, kwargs,
-                             {'type': 'EXIT', 'callable': wrapped, 'rv': rv})
+        exit_info = CallInfo(*args, type='EXIT', callable=wrapped, instance=instance,
+                             argnames=self.event._argnames, rv=rv, **kwargs)
         exit_value = self.event.fire(exit_info)
         rv = exit_value or rv
         return rv if rv is not ExplicitNone else None
@@ -214,7 +213,7 @@ class FunctionCall(Event):
 
     listener_class = CallListener
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kw):
         if len(args) == 1 and isinstance(args[0], str):
             name = args[0]
             if name in Event.instances:
@@ -227,7 +226,8 @@ class FunctionCall(Event):
             return
         super(FunctionCall, self).__init__(name)
         self.callable_wrapper = CallableWrapper(self, target_container,
-                                                target_attr)   
+                                                target_attr)
+        self._argnames = kw.get('argnames')
 
     def process_responses(self, values_iter):
         values = []
@@ -245,52 +245,25 @@ class Kwartuple(tuple):
     '''
     
     def __new__(cls, *args, **kwargs):
-        obj = super(Kwartuple, cls).__new__(cls, *args)
+        obj = super(Kwartuple, cls).__new__(cls, args)
         obj.__dict__.update(kwargs)
         return obj
-    
-    # Marker for "event result" "unwritten" interface: object
-    # - should be unpackable like a tuple
-    # - should provide the rest of its attributes via regular attribute access.
-    implements_event_result = True
 
 
-class CallInfo(object):
-    '''
-    Event result for `FunctionCall`.
-    '''
-    
-    def __new__(cls, callabl, args, kwargs, info=None):
-        if not inspect.isroutine(callabl):
-            # eg., if callabl is a class
-            return Kwartuple(args, **dict(kwargs, **info))
-        return super(CallInfo, cls).__new__(cls, callabl, args, kwargs, info)
-    
-    def __init__(self, callabl, args, kwargs, info=None):
-        call_args = inspect.getcallargs(callabl, *args, **kwargs).items()
-        self._argspec = inspect.getargspec(callabl).args
+class CallInfo(Kwartuple):
+
+    def __new__(cls, *args, **kwargs):
+        argnames = kwargs.pop('argnames', None)
+        instance = kwargs.pop('instance')
+        if argnames:
+            delta = len(argnames) - len(args)
+            if delta > 0:
+                args += tuple(kwargs[argname]
+                              for argname in argnames[-delta:])
+        if instance:
+            args = (instance,) + args
+        return super(CallInfo, cls).__new__(cls, *args, **kwargs)
         
-        def sort_func(elt):
-            arg, val = elt
-            try:
-                return self._argspec.index(arg)
-            except ValueError:
-                return len(call_args)
-        
-        self.odict = collections.OrderedDict(
-                sorted(call_args, key=sort_func))
-        if info:
-            self.odict.update(info)
-    
-    def __iter__(self):
-        return iter(self.odict.values()[:len(self._argspec)])
-    
-    def __getattr__(self, attr):
-        return self.odict[attr]
-    
-    # see comment to ``Kwartuple.implements_event_result``
-    implements_event_result = True
-
 
 def make_groutine(func):
     # XXX: refactor to class?
@@ -308,9 +281,8 @@ def make_groutine(func):
         should_stop = (itertools.count() if kwargs['once']
                        else itertools.repeat(0))
         def f():
-            
             with event.listen(**listener_kwargs):
-                value = switch()
+                value = switch() # XXX move out ?
                 while not next(should_stop):
                     rv = func(*value, **value.__dict__)
                     if not kwargs['once']:
@@ -354,14 +326,14 @@ if __name__ == '__main__':
         def start(self):
             return 1
         
-        def middle(self):
-            return 2
+        def middle(self, default=2):
+            return default
         
         def end(self):
             return 1
         
         def go(self):
-            for value in self.start(), self.middle(), self.end():
+            for value in self.start(), self.middle(default=3), self.end():
                 self.a += value
             return self.a
 
@@ -370,7 +342,10 @@ if __name__ == '__main__':
     
     @groutine()
     def a_greenlet():
-        evt = FunctionCall(SomeClass, 'middle').wait()
+        obj, defa, = FunctionCall(SomeClass, 'middle',
+                           argnames=['default']
+                           ).wait()
+        print defa
 #        evt = FunctionCall('__main__.SomeClass.middle').wait()
         for i in range(5):
             e = Event('OLD_VALUE')
