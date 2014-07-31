@@ -8,11 +8,12 @@ import types
 import itertools
 from contextlib import contextmanager
 import collections
+import inspect
 
 import ipdb
 
 from util import Counter
-
+#%%
 class ExplicitNone(object): pass
 
 class ForceReturn(object):
@@ -108,7 +109,8 @@ class Event(object):
         Event.instances[name] = self
     
     def fire(self, *args, **kwargs):
-        if len(args) == 1 and isinstance(args[0], Kwartuple):
+        if len(args) == 1 and getattr(args[0].__class__,
+                                      'implements_event_result', False):
             value = args[0]
         else:
             value = Kwartuple(args, **kwargs)
@@ -174,19 +176,18 @@ class CallableWrapper(object):
         
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
-        all_args = (instance,) + args if instance else args
-        enter_value = self.event.fire(*all_args,
-                **dict(kwargs, type='ENTER', callable=wrapped))
+        enter_info = CallInfo(wrapped, args, kwargs,
+                             {'type': 'ENTER', 'callable': wrapped})
+        enter_value = self.event.fire(enter_info)
         if enter_value is not None:
             return enter_value if enter_value is not ExplicitNone else None
 
         rv = wrapped(*args, **kwargs)
-        
-        exit_value = self.event.fire(*all_args,
-                **dict(kwargs, type='EXIT', callable=wrapped, rv=rv))
+        exit_info = CallInfo(wrapped, args, kwargs,
+                             {'type': 'EXIT', 'callable': wrapped, 'rv': rv})
+        exit_value = self.event.fire(exit_info)
         rv = exit_value or rv
         return rv if rv is not ExplicitNone else None
-
 
 
 class FunctionCall(Event):
@@ -220,10 +221,51 @@ class Kwartuple(tuple):
     '''
     
     def __new__(cls, *args, **kwargs):
-#        ipdb.set_trace()
         obj = super(Kwartuple, cls).__new__(cls, *args)
         obj.__dict__.update(kwargs)
         return obj
+    
+    # Marker for "event result" "unwritten" interface: object
+    # - should be unpackable like a tuple
+    # - should provide the rest of its attributes via regular attribute access.
+    implements_event_result = True
+
+
+class CallInfo(object):
+    '''
+    Event result for `FunctionCall`.
+    '''
+    
+    def __new__(cls, callabl, args, kwargs, info=None):
+        if not inspect.isroutine(callabl):
+            # eg., if callabl is a class
+            return Kwartuple(args, **dict(kwargs, **info))
+        return super(CallInfo, cls).__new__(cls, callabl, args, kwargs, info)
+    
+    def __init__(self, callabl, args, kwargs, info=None):
+        call_args = inspect.getcallargs(callabl, *args, **kwargs).items()
+        self._argspec = inspect.getargspec(callabl).args
+        
+        def sort_func(elt):
+            arg, val = elt
+            try:
+                return self._argspec.index(arg)
+            except ValueError:
+                return len(call_args)
+        
+        self.odict = collections.OrderedDict(
+                sorted(call_args, key=sort_func))
+        if info:
+            self.odict.update(info)
+    
+    def __iter__(self):
+        return iter(self.odict.values()[:len(self._argspec)])
+    
+    def __getattr__(self, attr):
+        return self.odict[attr]
+    
+    # see comment to ``Kwartuple.implements_event_result``
+    implements_event_result = True
 
 
 def make_groutine(func):
@@ -242,15 +284,15 @@ def make_groutine(func):
         should_stop = (itertools.count() if kwargs['once']
                        else itertools.repeat(0))
         def f():
+            
             with event.listen(**listener_kwargs):
                 value = switch()
                 while not next(should_stop):
-                    P = switch_logger.count
-                    func(*value, **value.__dict__)
-                    if switch_logger.count > P:
-                        value = switch_logger[-1][1] # last logged value
-                    elif not kwargs['once']:
-                        value = switch()
+                    rv = func(*value, **value.__dict__)
+                    if not kwargs['once']:
+                        value = switch(rv)
+                    else:
+                        return rv
 
     grinlet = greenlet.greenlet(f)
     grinlet.switch() # ignore switched value
@@ -307,7 +349,7 @@ if __name__ == '__main__':
         evt = FunctionCall('__main__.Counter').wait()
         for i in range(5):
             e = Event('OLD_VALUE')
-            val = e.fire(value=i)
+            print e.fire(value=i)
         switch(ForceReturn(9))
         
         
@@ -318,13 +360,14 @@ if __name__ == '__main__':
     
     @groutine(event=Event('OLD_VALUE'), once=False)
     def big_value(value):
-#        switch(value + 1)
-        print(value + 1)
+        return (value + 1)
+#        print(value + 1)
 #    
 #    with ipdb.launch_ipdb_on_exception():
     start_all([a_greenlet, big_value
                 ])
     o = Counter()
+    print o
 #    for i in switch_logger.deque: print i
     
 #%%
