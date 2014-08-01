@@ -13,7 +13,7 @@ import inspect
 import ipdb
 
 from util import Counter
-#%%
+
 class ExplicitNone(object): pass
 
 class ForceReturn(object):
@@ -56,7 +56,7 @@ class Listener(object):
 
     def __enter__(self):
         self.event.listeners.add(self)
-        return self
+        return self # XXX maybe smth else ?
     
     def __exit__(self, *exc_info):
         self.event.listeners.remove(self)
@@ -87,6 +87,7 @@ class CallListener(Listener):
             self.event.callable_wrapper.restore()
         super(CallListener, self).__exit__(*exc_info)
 
+# TODO: __str__ for classes
 
 class Event(object):
     '''
@@ -96,17 +97,17 @@ class Event(object):
     instances = {}
     listener_class = Listener
     
-    def __new__(cls, name, *args, **kw):
-        if name in Event.instances:
-            return Event.instances[name]
-        return super(Event, cls).__new__(cls, name, *args, **kw)
+    def __new__(cls, key):
+        if key in Event.instances:
+            return Event.instances[key]
+        return super(Event, cls).__new__(cls, key)
 
-    def __init__(self, name):
-        if name in Event.instances:
+    def __init__(self, key):
+        if key in Event.instances:
             return
-        self.name = name
+        self.key = key
         self.listeners = set()
-        Event.instances[name] = self
+        Event.instances[key] = self
     
     def fire(self, *args, **kwargs):
         if len(args) == 1 and isinstance(args[0], Kwartuple):
@@ -143,27 +144,28 @@ class Event(object):
         with self.listen(*listener_args, **listener_kwargs):
             return switch()
 
+@contextmanager
+def listen_any(events, *listener_args, **listener_kwargs):
+    listeners = []
+    for event in events:
+        listener = event.listen(*listener_args, **listener_kwargs)
+        listeners.append(listener)
+        listener.__enter__()
+    yield
+    for listener in listeners:
+        listener.__exit__()
+
+def wait_any(events, *listener_args, **listener_kwargs):
+    with listen_any(events, *listener_args, **listener_kwargs):
+        return switch()
+
 
 class CallableWrapper(object):
     '''
     Wraps a callable. Calls respective events (``event``) before and after
     the target call. Events sent differ in ``type`` argument:
     'ENTER' and 'EXIT' respectively.
-
     '''
-    
-#    def __init__(self, event, target):
-#        self.event = event
-#        if isinstance(target, tuple):
-#            # TODO: probably will be able to figure that out
-#            #       just from target callable, and get rid of tuple.
-#            self._target_parent, self._target_attribute = target
-#            self._target = getattr(self._target_parent, self._target_attribute)
-#        else:
-#            # target is of string type
-#            self._target_parent, self._target = object_from_name(target)
-#            self._target_attribute = target.split('.')[-1]
-#        self.patched = False
 
     def __init__(self, event, target_container, target_attr):
         self.event = event
@@ -177,7 +179,13 @@ class CallableWrapper(object):
         '''
         Replace original with wrapper.
         '''
-        setattr(self._target_parent, self._target_attribute, self(self._target))
+        if (isinstance(self._target, types.UnboundMethodType)
+                and isinstance(self._target.__self__, type)):
+            # if it's a classmethod
+            target = classmethod(self._target.__func__)
+        else:
+            target = self._target
+        setattr(self._target_parent, self._target_attribute, self(target))
         self.patched = True
     
     def restore(self):
@@ -187,17 +195,20 @@ class CallableWrapper(object):
         setattr(self._target_parent, self._target_attribute, self._target)
         self.patched = False
         
+    
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
-        enter_info = CallInfo(*args, type='ENTER', callable=wrapped, instance=instance,
-                              argnames=self.event._argnames, **kwargs)
+        bound_arg = getattr(wrapped, 'im_self', None) \
+                    or getattr(wrapped, 'im_class', None)
+        enter_info = CallInfo(*args, type='ENTER', callable=wrapped,
+                bound_arg=bound_arg, argnames=self.event._argnames, **kwargs)
         enter_value = self.event.fire(enter_info)
         if enter_value is not None:
             return enter_value if enter_value is not ExplicitNone else None
 
         rv = wrapped(*args, **kwargs)
-        exit_info = CallInfo(*args, type='EXIT', callable=wrapped, instance=instance,
-                             argnames=self.event._argnames, rv=rv, **kwargs)
+        exit_info = CallInfo(*args, type='EXIT', callable=wrapped,
+                bound_arg=bound_arg, argnames=self.event._argnames, rv=rv, **kwargs)
         exit_value = self.event.fire(exit_info)
         rv = exit_value or rv
         return rv if rv is not ExplicitNone else None
@@ -213,21 +224,27 @@ class FunctionCall(Event):
 
     listener_class = CallListener
 
-    def __init__(self, *args, **kw):
-        if len(args) == 1 and isinstance(args[0], str):
-            name = args[0]
-            if name in Event.instances:
-                return
-            target_container, target_attr, _ = object_from_name(name) 
-        else:
-            target_container, target_attr = args
-            name = '.'.join((target_container.__name__, target_attr))
-        if name in Event.instances:
+    def __getattr__(self, attr):
+        if attr == 'callable_wrapper':
+            ipdb.set_trace()
+
+    def __new__(cls, key, argnames=None):
+        return super(FunctionCall, cls).__new__(cls, key)
+
+    def __init__(self, key, argnames=None):
+        if key in Event.instances:
             return
-        super(FunctionCall, self).__init__(name)
-        self.callable_wrapper = CallableWrapper(self, target_container,
-                                                target_attr)
-        self._argnames = kw.get('argnames')
+        if isinstance(key, (str, unicode)):
+            target_container, target_attr, _ = object_from_name(key) 
+        else:
+            assert len(key) == 2
+            # TODO: probably will be able to figure that out
+            #       just from target callable, and get rid of tuple.
+            target_container, target_attr = key
+        self.callable_wrapper = CallableWrapper(self, target_container, target_attr)
+        self._argnames = argnames
+        # Add to events registry in the end
+        super(FunctionCall, self).__init__(key)
 
     def process_responses(self, values_iter):
         values = []
@@ -252,16 +269,19 @@ class Kwartuple(tuple):
 
 class CallInfo(Kwartuple):
 
+    # TODO: handle default args
+
     def __new__(cls, *args, **kwargs):
         argnames = kwargs.pop('argnames', None)
-        instance = kwargs.pop('instance')
+        bound_arg = kwargs.pop('bound_arg')
         if argnames:
             delta = len(argnames) - len(args)
             if delta > 0:
                 args += tuple(kwargs[argname]
                               for argname in argnames[-delta:])
-        if instance:
-            args = (instance,) + args
+                # TODO: KeyError: error msg
+        if bound_arg:
+            args = (bound_arg,) + args
         return super(CallInfo, cls).__new__(cls, *args, **kwargs)
         
 
@@ -326,26 +346,27 @@ if __name__ == '__main__':
         def start(self):
             return 1
         
-        def middle(self, default=2):
+        @classmethod
+        def middle(cls, default=2):
             return default
         
         def end(self):
             return 1
         
-        def go(self):
-            for value in self.start(), self.middle(default=3), self.end():
-                self.a += value
-            return self.a
+#        def go(self):
+#            for value in self.start(), SomeClass.middle(default=3), self.end():
+#                self.a += value
+#            return self.a
 
 
     from dec import groutine
     
     @groutine()
     def a_greenlet():
-        obj, defa, = FunctionCall(SomeClass, 'middle',
+        val = FunctionCall((SomeClass, 'middle'),
                            argnames=['default']
                            ).wait()
-        print defa
+        print val
 #        evt = FunctionCall('__main__.SomeClass.middle').wait()
         for i in range(5):
             e = Event('OLD_VALUE')
@@ -367,7 +388,8 @@ if __name__ == '__main__':
     start_all([a_greenlet, big_value
                 ])
     o = SomeClass()
-    print o.go()
+#    ipdb.set_trace()
+    print SomeClass.middle(default=6)
 #    for i in switch_logger.deque: print i
     
 #%%
