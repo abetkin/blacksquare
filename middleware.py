@@ -13,6 +13,8 @@ class GMiddleware(object):
     def functions(self):
         return [
             start_view, deserialization,
+            make_responses_raise_exc,
+#            _1,
         ]
     
     def __init__(self):
@@ -62,10 +64,18 @@ def deserialization(view, request):
         print field_name, '->', into.get(field_name, '----')
 
 
-#@groutine(FunctionCall('rest_framework.fields.Field.initialize'),
-#          once=False)
-#def _1(field_name, field, *args, **kw):
-#    print field_name
+#@groutine(FunctionCall('rest_framework.serializers.Field'
+#                        '.field_from_native') ,once=False)
+#def _1(field, data, files, field_name, into, **kw):
+#    print field_name, '->', into.get(field_name, '----')
+
+@groutine(FunctionCall('rest_framework.mixins.Response',
+                       argnames=('data', 'status'),
+                       restore_asap=True),
+          once=False)
+def make_responses_raise_exc(data, status, *args, **kw):
+    if status // 100 != 2:
+        raise Exception(data)
 
 #@groutine('DESER_FIELD', once=False)
 #def deserialize_field(field_name, data, into):

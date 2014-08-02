@@ -83,7 +83,7 @@ class CallListener(Listener):
         return super(CallListener, self).__enter__()
     
     def __exit__(self, *exc_info):
-        if not self.event.listeners:
+        if not self.event.listeners and self.event.callable_wrapper.patched:
             self.event.callable_wrapper.restore()
         super(CallListener, self).__exit__(*exc_info)
 
@@ -167,11 +167,12 @@ class CallableWrapper(object):
     'ENTER' and 'EXIT' respectively.
     '''
 
-    def __init__(self, event, target_container, target_attr):
+    def __init__(self, event, target_container, target_attr, restore_asap=False):
         self.event = event
         self._target_parent = target_container
         self._target_attribute = target_attr
         self._target = getattr(target_container, target_attr)
+        self._restore_asap = restore_asap
         self.patched = False
 
 
@@ -198,6 +199,8 @@ class CallableWrapper(object):
     
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
+        if self._restore_asap:
+            self.restore()
         bound_arg = getattr(wrapped, 'im_self', None) \
                     or getattr(wrapped, 'im_class', None)
         enter_info = CallInfo(*args, type='ENTER', callable=wrapped,
@@ -228,10 +231,10 @@ class FunctionCall(Event):
         if attr == 'callable_wrapper':
             ipdb.set_trace()
 
-    def __new__(cls, key, argnames=None):
+    def __new__(cls, key, argnames=None, restore_asap=False):
         return super(FunctionCall, cls).__new__(cls, key)
 
-    def __init__(self, key, argnames=None):
+    def __init__(self, key, argnames=None, restore_asap=False):
         if key in Event.instances:
             return
         if isinstance(key, (str, unicode)):
@@ -241,7 +244,8 @@ class FunctionCall(Event):
             # TODO: probably will be able to figure that out
             #       just from target callable, and get rid of tuple.
             target_container, target_attr = key
-        self.callable_wrapper = CallableWrapper(self, target_container, target_attr)
+        self.callable_wrapper = CallableWrapper(self, target_container, target_attr,
+                                                restore_asap=restore_asap)
         self._argnames = argnames
         # Add to events registry in the end
         super(FunctionCall, self).__init__(key)
@@ -277,7 +281,7 @@ class CallInfo(Kwartuple):
         if argnames:
             delta = len(argnames) - len(args)
             if delta > 0:
-                args += tuple(kwargs[argname]
+                args += tuple(kwargs.pop(argname)
                               for argname in argnames[-delta:])
                 # TODO: KeyError: error msg
         if bound_arg:

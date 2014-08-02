@@ -26,7 +26,7 @@ def groutine(event=None, once=True, listener_kwargs={}):
         def boom(location, strength, **kw):
             print '%s: BOOM!' % location
     
-    :param once: groutine will be run only at first firing of the event
+    :param once: groutine will only be run at first firing of the event
     '''
     def decorator(f):
         f._groutine = {'event': event,
