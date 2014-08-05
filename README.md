@@ -90,8 +90,9 @@ as well). 'ENTER' and 'EXIT' are two types of ``FunctionCall`` event: respective
 Another small but useful example: when we get a "not ok" response like 400, we can't always tell from its message what happened.
 Exception is better: it prints the stack of frames. Let's change one with the other: ``Response`` is a class, hence, a callable.
     
-    @groutine(FunctionCall('rest_framework.response.Response',
-                           argnames=('data', 'status'))
+    @groutine(FunctionCall('rest_framework.mixins.Response',
+                           argnames=('data', 'status'),
+                           restore_asap=True)
     def make_responses_raise_exc(data, status, *args, **kw):
         if status // 100 != 2:
             raise Exception(data)
@@ -99,5 +100,12 @@ Exception is better: it prints the stack of frames. Let's change one with the ot
 *Note*: ``FunctionCall`` has positional and keyword arguments passed to it, those are what underlying function was passed, but that
 depends on the caller's mood: you can pass positional argument as keyword. So, you don't know the exact number of positional arguments.
 To solve this, you can pass ``argnames`` parameter, and even if some of ``argnames`` items was passed as keyword, they would be made positional.
-*Note*: In Python 3 the solution wouldn't require passing additional parameter, since [Signature](https://docs.python.org/3/library/inspect.html#inspect.Signature)
+In Python 3 the solution wouldn't require passing additional parameter, since [Signature](https://docs.python.org/3/library/inspect.html#inspect.Signature)
 is smart enough to figure the actual function's signature out.
+
+An example of groutine, that represents an infinite loop:
+    
+    groutine(FunctionCall('rest_framework.serializers.Field'
+                           '.field_from_native') ,once=False)
+    def _1(field, data, files, field_name, into, **kw):
+        print field_name, '->', into.get(field_name, '----')
