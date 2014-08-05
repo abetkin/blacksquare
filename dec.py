@@ -4,7 +4,7 @@
 Here live decorators.
 '''
 
-def groutine(event=None, once=True, listener_kwargs={}):
+def groutine(event=None, once=True, **listener_kwargs):
     '''
     Marks groutine (lazy decorator).
     

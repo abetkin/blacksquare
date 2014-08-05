@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
 
+from django.contrib.auth.models import User
+
 from groutines import (make_groutine, FunctionCall, Event, switch, greenlet,
                        wait_any, listen_any,)
 from dec import groutine
 import IPython, ipdb
-
-# TODO: `parent can't be on different thread`
 
 class GMiddleware(object):
     
     @property
     def functions(self):
         return [
-            start_view, deserialization,
-            make_responses_raise_exc,
-#            _1,
+            start_view, check_permissions,
+            fill_user,
         ]
     
     def __init__(self):
@@ -28,18 +27,27 @@ class GMiddleware(object):
     
     def process_response(self, request, response):
         for gr in tuple(self.groutines):
-            
-            gr.throw()
+            gr.throw() # killing it
             self.groutines.remove(gr)
-            
         return response
 
 @groutine()
 def start_view():
     view, request = FunctionCall(
             'rest_framework.views.APIView.dispatch').wait('ENTER')
-    print view.__class__
     Event('DISPATCH').fire(view, request)
+
+@groutine(FunctionCall('rest_framework.views.APIView.check_permissions'),
+          typ='ENTER')
+def check_permissions(view, request, **kw):
+    return True
+
+
+@groutine('DISPATCH')
+def fill_user(view, request):
+    _, snippet = FunctionCall((view, 'pre_save')).wait(typ='ENTER')
+    snippet.owner = User.objects.get(username='vitalii')
+
 
 @groutine('DISPATCH')
 def deserialization(view, request):

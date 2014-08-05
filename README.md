@@ -10,21 +10,73 @@ About the code you need to write: it is supposed to be structured into groutines
 
 how it appeared
 ----------------
-
 The initial aim was to give tests the ability to "listen" to some method so that to add checks on its parameters and the return value. As later the range where it could be possibly applied widened, I focused on implementing the core functionality, so there is no any integration with testing at all in the current version.
 
 range of application
 ---------------------
-Everywhere except production: testing, debugging, logging, writing code, etc.
+Everywhere except production: testing, debugging, logging, writing code, etc. Also I believe that **the worse is the code,
+the more this framework is needed**, from what everyone should conclude it is very useful ;)
 
 global scenario
 -----------------
-
-The framework is lazy: it does not run code itself, instead, it (temporary) patches external code's functions so that it's code would be run. This "external scenario" can be it a script, a test, or a server responding on user request. It is not required to know anything about the framework.
+The framework is lazy: it does not run code itself, instead, it (temporary) patches external code's functions so that it's code would be run. This external scenario can be a script, a test, or a server responding on user request. It is not required to know anything about the framework.
 
 groutine
 ----------
-
 In current version it is just a [greenlet](http://greenlet.readthedocs.org), i. e., the execution context which can be given control by switching into it. But, unlike the function, 2 greenlets can switch data back and forth many times, and unlike the generator, any greenlet has a parent, etc. *Greenlets are executed in the same thread with the rest of the program, there is no event loop occupying a thread.*
 
-Groutine is a relatively independent unit in the framework. In most cases they just respond to and fire the events (events carry data), also can directly switch data with the parent. They serve the main goal of the framework: to be able to test (or debug, or log) logically unrelated stuff separately. Or conversely, to put logically correlated stuff together.
+Groutine is a relatively independent unit in the framework. In most cases they just respond to and fire the events (events carry data), and also can directly switch data with the parent. They serve the main goal of the framework: to be able to test (or debug, or log) logically unrelated stuff separately. Or conversely, to put logically correlated stuff together.
+
+Examples
+-------------
+The framework isn't related in any kind to web, but since it's what majority is interested in, and taking into account the last remark about 
+the range of its application .. an example application will be [this](https://github.com/tomchristie/rest-framework-tutorial)
+(the official example of using [Django REST Framework](http://www.django-rest-framework.org/)).
+
+It demonstrates the simplest use of the framework: just patching.
+It also shows how it can be used with [django](https://www.djangoproject.com/) (see simplest middleware). 2 patches (``check_permissions``
+and ``fill_user``) show two ways of referencing callables: by absolute import path and by object's attribute. It could be referenced by class atribute 
+as well.
+
+
+    class GMiddleware(object):
+        
+        @property
+        def functions(self):
+            return [
+                start_view, check_permissions,
+                fill_user,
+            ]
+        
+        def __init__(self):
+            self.groutines = set()
+        
+        def process_view(self, request, view_func, view_args, view_kwargs):
+            for func in self.functions:
+                gr = make_groutine(func)
+                self.groutines.add(gr)
+            
+        
+        def process_response(self, request, response):
+            for gr in tuple(self.groutines):
+                gr.throw() # killing it
+                self.groutines.remove(gr)
+            return response
+
+    @groutine()
+    def start_view():
+        view, request = FunctionCall(
+                'rest_framework.views.APIView.dispatch').wait('ENTER')
+        Event('DISPATCH').fire(view, request)
+
+    @groutine(FunctionCall('rest_framework.views.APIView.check_permissions'),
+            typ='ENTER')
+    def check_permissions(view, request, **kw):
+        return True
+
+
+    @groutine('DISPATCH')
+    def fill_user(view, request):
+        _, snippet = FunctionCall((view, 'pre_save')).wait(typ='ENTER')
+        snippet.owner = User.objects.get(username='vitalii')
+
