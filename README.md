@@ -96,8 +96,8 @@ Exception is better: it prints the stack of frames. Let's change one with the ot
         if status // 100 != 2:
             raise Exception(data)
     
-``argnames``: ``FunctionCall`` has positional and keyword arguments passed to it, those are what underlying function was passed, but that
+*Note*: ``FunctionCall`` has positional and keyword arguments passed to it, those are what underlying function was passed, but that
 depends on the caller's mood: you can pass positional argument as keyword. So, you don't know the exact number of positional arguments.
-To solve this, you can pass ``argnames`` parameter, and even if some of them was passed as keyword, they would be made positional.
+To solve this, you can pass ``argnames`` parameter, and even if some of ``argnames`` items was passed as keyword, they would be made positional.
 *Note*: In Python 3 the solution wouldn't require passing additional parameter, since [Signature](https://docs.python.org/3/library/inspect.html#inspect.Signature)
 is smart enough to figure the actual function's signature out.
