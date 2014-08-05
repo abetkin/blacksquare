@@ -227,10 +227,6 @@ class FunctionCall(Event):
 
     listener_class = CallListener
 
-    def __getattr__(self, attr):
-        if attr == 'callable_wrapper':
-            ipdb.set_trace()
-
     def __new__(cls, key, argnames=None, restore_asap=False):
         return super(FunctionCall, cls).__new__(cls, key)
 
