@@ -1,7 +1,7 @@
 Patching: the white people method
 =================================
 
-With this I introduce **groutines** framework.
+With this I shall introduce **groutines** framework.
 It's aim is to see what runtime-controlled patching can bring us. In my opinion, that idea wasn't fully exploited yet.
 
 It supports only patching callables, but it's done implicitly for you, all your code needs to do is to subscribe at runtime to the event of calling some method. Custom events are also supported.
@@ -30,8 +30,10 @@ Groutine is a relatively independent unit in the framework. In most cases they j
 Examples
 -------------
 The framework isn't related in any kind to web, but since it's what majority is interested in, and taking into account the last remark about 
-the range of its application .. an example application will be [this](https://github.com/tomchristie/rest-framework-tutorial)
-(the official example of using [Django REST Framework](http://www.django-rest-framework.org/)).
+the range of its application.. the example application will be [this](https://github.com/tomchristie/rest-framework-tutorial)
+(the official example of using [Django REST Framework](http://www.django-rest-framework.org/)). The global scenario is this request:
+    
+    POST /snippets/ title=aaa code=bbb
 
 It demonstrates the simplest use of the framework: just patching.
 It also shows how it can be used with [django](https://www.djangoproject.com/) (see simplest middleware). 2 patches (``check_permissions``
