@@ -31,15 +31,16 @@ Examples
 -------------
 The framework isn't related in any kind to web, but since it's what majority is interested in, and taking into account the last remark about 
 the range of its application.. the example application will be [this](https://github.com/tomchristie/rest-framework-tutorial)
-(the official example of using [Django REST Framework](http://www.django-rest-framework.org/)). The global scenario is this request:
+(the official example of using [Django REST Framework](http://www.django-rest-framework.org/)). The global scenario will be this request:
     
     POST /snippets/ title=aaa code=bbb
 
-It demonstrates the simplest use of the framework: just patching.
-It also shows how it can be used with [django](https://www.djangoproject.com/) (see simplest middleware). 2 patches (``check_permissions``
-and ``fill_user``) show two ways of referencing callables: by absolute import path and by object's attribute. It could be referenced by class atribute 
-as well.
+The code below demonstrates the simplest use of the framework: just patching.
+It also shows how it can be used with [django](https://www.djangoproject.com/) (see simplest middleware).
 
+First of all: here is how it can be hooked up with django (treat is as an example).
+
+*Note*: groutine discovery is not implemented yet, so they are just listed in the ``functions`` property. 
 
     class GMiddleware(object):
         
@@ -64,6 +65,10 @@ as well.
                 gr.throw() # killing it
                 self.groutines.remove(gr)
             return response
+
+Now the example itself. Two patches (``check_permissions``
+and ``fill_user``) show two ways of referencing callables: by absolute import path and by object's attribute (it could be referenced by class atribute 
+as well).
 
     @groutine()
     def start_view():
