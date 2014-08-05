@@ -20,8 +20,7 @@ Everywhere except production: testing, debugging, logging, writing code, etc.
 global scenario
 -----------------
 
-The framework presumes the existence of some global execution scenario, be it a script, a test, or a server responding on user request. It does not run code itself, instead, it (temporary) patches external code's functions so that it's code would be run. 
-This "external" scenario is not required to know anything about the framework.
+The framework is lazy: it does not run code itself, instead, it (temporary) patches external code's functions so that it's code would be run. This "external scenario" can be it a script, a test, or a server responding on user request. It is not required to know anything about the framework.
 
 groutine
 ----------
