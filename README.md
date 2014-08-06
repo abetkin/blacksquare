@@ -4,7 +4,7 @@ Patching: the white people method
 With this I shall introduce **groutines** framework.
 It's aim is to see what runtime-controlled patching can bring us. In my opinion, that idea wasn't fully exploited yet.
 
-It supports only patching callables, but it's done implicitly for you, all your code needs to do is to subscribe at runtime to the event of calling some method. Custom events are also supported.
+It supports only patching callables, but it's done implicitly for you, all your code needs to do is to subscribe at runtime to the event of calling some method.
 
 About the code you need to write: it is supposed to be structured into groutines, an independent, discoverable (something like a test) piece of code. As opposed to tests, they are alive altogether (not run one by one) and can fire and listen to events.
 
