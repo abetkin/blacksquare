@@ -37,38 +37,9 @@ The framework isn't related in any kind to web, but since it's what majority is 
 The code below demonstrates the simplest use of the framework: just patching.
 It also shows how it can be used with [django](https://www.djangoproject.com/) (see simplest middleware).
 
-First of all: here is how it can be hooked up with django (treat is as an example).
+First of all: it can be hooked up with django using middleware, ``middleware.GMiddleware``)
 
-*Note*: groutine discovery is not implemented yet, so they are just listed in the ``functions`` property. 
-
-    class GMiddleware(object):
-        
-        @property
-        def functions(self):
-            return [
-                start_view, check_permissions,
-                fill_user,
-            ]
-        
-        def __init__(self):
-            self.groutines = set()
-        
-        def process_view(self, request, view_func, view_args, view_kwargs):
-            for func in self.functions:
-                gr = make_groutine(func)
-                self.groutines.add(gr)
-            
-        
-        def process_response(self, request, response):
-            for gr in tuple(self.groutines):
-                gr.throw() # killing it
-                self.groutines.remove(gr)
-            return response
-
-Now the example itself. ``FunctionCall`` event is fired when corresponding callable gets called. The data event carries is positional and
-keyword arguments the callable was called with. Two patches (``check_permissions``
-and ``fill_user``) show two ways of referencing callables: by absolute import path and by object's attribute (it could be referenced by class atribute 
-as well). 'ENTER' and 'EXIT' are two types of ``FunctionCall`` event: respective, before and after the underlying function call.
+Now the example itself.
 
     @groutine()
     def start_view():
@@ -86,25 +57,29 @@ as well). 'ENTER' and 'EXIT' are two types of ``FunctionCall`` event: respective
         _, snippet = FunctionCall((view, 'pre_save')).wait(typ='ENTER')
         snippet.owner = User.objects.get(username='vitalii')
 
+``FunctionCall`` event is fired when corresponding callable gets called. This event carries positional and
+keyword arguments the callable was called with. Two patches (``check_permissions``
+and ``fill_user``) show two ways of referencing callables: by absolute import path and by object's attribute (it could be referenced by class atribute 
+as well). 'ENTER' and 'EXIT' are two types of ``FunctionCall`` event: respective, before and after the underlying function call.
+
 Another small but useful example: when we get a "not ok" response like 400, we can't always tell from its message what happened.
 Exception is better: it prints the stack of frames. Let's change one with the other: ``Response`` is a class, hence, a callable.
     
-    @groutine(FunctionCall('rest_framework.mixins.Response',
+    @groutine(FunctionCall('rest_framework.response.Response',
                            argnames=('data', 'status')))
     def make_responses_raise_exc(data, status, *args, **kw):
         if status // 100 != 2:
             raise Exception(data)
     
-*Note*: ``FunctionCall`` has positional and keyword arguments passed to it, those are what underlying function was passed, but that
-depends on the caller's mood: you can pass positional argument as keyword. So, you don't know the exact number of positional arguments.
-To solve this, you can pass ``argnames`` parameter, and even if some of ``argnames`` items was passed as keyword, they would be made positional.
+*Note*: ``FunctionCall`` has positional and keyword arguments as a value attached to it, those are what underlying function was passed. But you can pass positional argument as keyword to a function. So, we can't know the exact number of positional arguments event carries.
+To solve this, you can pass ``argnames`` parameter, and even if some of ``argnames`` items were passed as keyword, they would be made positional.
 In Python 3 the solution wouldn't require passing additional parameter, since [Signature](https://docs.python.org/3/library/inspect.html#inspect.Signature)
 is smart enough to figure the actual function's signature out.
 
 An example of groutine, that represents an infinite loop:
     
-    @groutine(FunctionCall('rest_framework.serializers.Field'
-                           '.field_from_native'), loop=True)
+    @groutine(FunctionCall('rest_framework.serializers.Field.field_from_native'),
+              loop=True)
     def print_field_names(field, data, files, field_name, into, **kw):
         print field_name, '->', into.get(field_name, '----')
 
