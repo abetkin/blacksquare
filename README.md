@@ -23,7 +23,7 @@ The framework is lazy: it does not run code itself, instead, it (temporary) patc
 
 groutine
 ----------
-In current version it is just a [greenlet](http://greenlet.readthedocs.org), i. e., the execution context which can be given control by switching into it. But, unlike the function, 2 greenlets can switch data back and forth many times, and unlike the generator, any greenlet has a parent, etc. *Greenlets are executed in the same thread with the rest of the program, there is no event loop occupying a thread.*
+In current version it is just a [greenlet](http://greenlet.readthedocs.org), which is an execution context which can be given control by switching into it. But, unlike the function, 2 greenlets can switch data back and forth many times, and unlike the generator, any greenlet has a parent, etc. *Greenlets are executed in the same thread with the rest of the program, there is no event loop occupying a thread.*
 
 Groutine is a relatively independent unit in the framework. In most cases they just respond to and fire the events (events carry data), and also can directly switch data with the parent. They serve the main goal of the framework: to be able to test (or debug, or log) logically unrelated stuff separately. Or conversely, to put logically correlated stuff together.
 
