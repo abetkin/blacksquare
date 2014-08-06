@@ -29,8 +29,7 @@ Groutine is a relatively independent unit in the framework. In most cases they j
 
 Examples
 -------------
-The framework isn't related in any kind to web, but since it's what majority is interested in, and taking into account the last remark about 
-the range of its application.. the example application will be [this](https://github.com/tomchristie/rest-framework-tutorial)
+The framework isn't related in any kind to web, but since it's what majority is interested in.. the example application will be [this](https://github.com/tomchristie/rest-framework-tutorial)
 (the official example of using [Django REST Framework](http://www.django-rest-framework.org/)). The global scenario will be this request:
     
     POST /snippets/ title=aaa code=bbb
