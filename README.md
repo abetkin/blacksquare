@@ -4,18 +4,18 @@ Patching: the white people method
 With this I shall introduce **groutines** framework.
 It's aim is to see what runtime-controlled patching can bring us. In my opinion, that idea wasn't fully exploited yet.
 
-It supports only patching callables, but it's done implicitly for you, all your code needs to do is to subscribe at runtime to the event of calling some method.
+Speaking of patching, it supports only patching callables, namely, you can add pre- or post-hooks or replace the callable entirely. It is done implicitly for you, all your code needs to do is to subscribe at runtime to the event of calling some method.
 
 About the code you need to write: it is supposed to be structured into groutines, an independent, discoverable (something like a test) piece of code. As opposed to tests, they are alive altogether (not run one by one) and can fire and listen to events.
 
 how it appeared
 ----------------
-The initial aim was to give tests the ability to "listen" to some method so that to add checks on its parameters and the return value. As later the range where it could be possibly applied widened, I focused on implementing the core functionality, so there is no any integration with testing at all in the current version.
+The initial aim was to give tests the ability to "listen" to some method so that to be able to add checks on its parameters and the return value. As later the range where it could be possibly applied widened, I focused on implementing the core functionality, so there is no any integration with testing at all in the current version.
 
 range of application
 ---------------------
-Everywhere except production: testing, debugging, logging, writing code, etc. Also I believe that **the worse is the code,
-the more this framework is needed**, from what everyone should conclude it is very useful ;)
+Everywhere except production: testing, debugging, logging, writing code, etc. Also I believe that the worse is the code,
+the more this framework is needed.
 
 global scenario
 -----------------
