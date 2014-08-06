@@ -6,7 +6,7 @@ It's aim is to see what runtime-controlled patching can bring us. In my opinion,
 
 Speaking of patching, it supports only patching callables, namely, you can add pre- or post-hooks or replace the callable entirely. It is done implicitly for you, all your code needs to do is to subscribe at runtime to the event of calling some method.
 
-About the code you need to write: it is supposed to be structured into groutines, an independent, discoverable (something like a test) piece of code. As opposed to tests, they are alive altogether (not run one by one) and can fire and listen to events.
+About the code you need to write: it is supposed to be structured into groutines (basically, [greenlets](http://greenlet.readthedocs.org)), an independent, discoverable (something like a test) piece of code. As opposed to tests, they are alive altogether (not run one by one) and can fire and listen to events.
 
 how it appeared
 ----------------
@@ -23,7 +23,7 @@ The framework is lazy: it does not run code itself, instead, it (temporary) patc
 
 groutine
 ----------
-In current version it is just a [greenlet](http://greenlet.readthedocs.org), which is an execution context which can be given control by switching into it. But, unlike the function, 2 greenlets can switch data back and forth many times, and unlike the generator, any greenlet has a parent, etc. *Greenlets are executed in the same thread with the rest of the program, there is no event loop occupying a thread.*
+In current version it is just a [greenlet](http://greenlet.readthedocs.org), which is an execution context that can be given control by switching into it. But, unlike the function, two greenlets can switch data back and forth many times, and unlike the generator, any greenlet has a parent, etc. *Greenlets are executed in the same thread with the rest of the program, there is no event loop occupying a thread.*
 
 Groutine is a relatively independent unit in the framework. In most cases they just respond to and fire the events (events carry data), and also can directly switch data with the parent. They serve the main goal of the framework: to be able to test (or debug, or log) logically unrelated stuff separately. Or conversely, to put logically correlated stuff together.
 
@@ -35,11 +35,7 @@ The framework isn't related in any kind to web, but since it's what majority is 
     POST /snippets/ title=aaa code=bbb
 
 The code below demonstrates the simplest use of the framework: just patching.
-It also shows how it can be used with [django](https://www.djangoproject.com/) (see simplest middleware).
-
-First of all: it can be hooked up with django using middleware, ``middleware.GMiddleware``)
-
-Now the example itself.
+For an example how it can be used with [django](https://www.djangoproject.com/), see ``middleware.GMiddleware``.
 
     @groutine()
     def start_view():
@@ -71,9 +67,9 @@ Exception is better: it prints the stack of frames. Let's change one with the ot
         if status // 100 != 2:
             raise Exception(data)
     
-*Note*: ``FunctionCall`` has positional and keyword arguments as a value attached to it, those are what underlying function was passed. But you can pass positional argument as keyword to a function. So, we can't know the exact number of positional arguments event carries.
-To solve this, you can pass ``argnames`` parameter, and even if some of ``argnames`` items were passed as keyword, they would be made positional.
-In Python 3 the solution wouldn't require passing additional parameter, since [Signature](https://docs.python.org/3/library/inspect.html#inspect.Signature)
+*Note*: ``FunctionCall`` has positional and keyword arguments as a value it carries, those are what the underlying callable (here - ``Response`` class) was passed. But one can pass positional argument as keyword to a function. So, we can't know the exact number of positional arguments event carries.
+To solve this, you can pass ``argnames`` parameter, and even if some of ``argnames`` items would be passed as keyword, they would be made positional.
+In Python 3 the solution wouldn't require passing additional parameter (``argnames``), since [Signature](https://docs.python.org/3/library/inspect.html#inspect.Signature) class
 is smart enough to figure the actual function's signature out.
 
 An example of groutine, that represents an infinite loop:
