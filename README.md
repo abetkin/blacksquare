@@ -35,7 +35,7 @@ The framework isn't related in any kind to web, but since it's what majority is 
     POST /snippets/ title=aaa code=bbb
 
 The code below demonstrates the simplest use of the framework: just patching.
-For an example how it can be used with [django](https://www.djangoproject.com/), see ``middleware.GMiddleware``.
+For an example on how it can be used with [django](https://www.djangoproject.com/), see ``middleware.GMiddleware``.
 
     @groutine()
     def start_view():
@@ -67,8 +67,8 @@ Exception is better: it prints the stack of frames. Let's change one with the ot
         if status // 100 != 2:
             raise Exception(data)
     
-*Note*: ``FunctionCall`` has positional and keyword arguments as a value it carries, those are what the underlying callable (here - ``Response`` class) was passed. But one can pass positional argument as keyword to a function. So, we can't know the exact number of positional arguments event carries.
-To solve this, you can pass ``argnames`` parameter, and even if some of ``argnames`` items would be passed as keyword, they would be made positional.
+*Note*: ``FunctionCall`` has positional and keyword arguments as a value it carries, those are what the underlying callable (here - ``Response`` class) was passed. But one can pass positional argument as keyword to a function. So, we can't know exact number of positional arguments event carries.
+To solve this, you can pass ``argnames`` parameter: now even if some of ``argnames`` items will be passed as keyword, they will be made positional.
 In Python 3 the solution wouldn't require passing additional parameter (``argnames``), since [Signature](https://docs.python.org/3/library/inspect.html#inspect.Signature) class
 is smart enough to figure the actual function's signature out.
 
