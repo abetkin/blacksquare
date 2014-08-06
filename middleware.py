@@ -12,8 +12,7 @@ class GMiddleware(object):
     @property
     def functions(self):
         return [
-            start_view, check_permissions,
-            fill_user,
+            start_view, make_responses_raise_exc,
         ]
     
     def __init__(self):
@@ -77,10 +76,8 @@ def deserialization(view, request):
 #def _1(field, data, files, field_name, into, **kw):
 #    print field_name, '->', into.get(field_name, '----')
 
-@groutine(FunctionCall('rest_framework.mixins.Response',
-                       argnames=('data', 'status'),
-                       restore_asap=True),
-          once=False)
+@groutine(FunctionCall('rest_framework.response.Response',
+                       argnames=('data', 'status')))
 def make_responses_raise_exc(data, status, *args, **kw):
     if status // 100 != 2:
         raise Exception(data)

@@ -167,12 +167,11 @@ class CallableWrapper(object):
     'ENTER' and 'EXIT' respectively.
     '''
 
-    def __init__(self, event, target_container, target_attr, restore_asap=False):
+    def __init__(self, event, target_container, target_attr):
         self.event = event
         self._target_parent = target_container
         self._target_attribute = target_attr
         self._target = getattr(target_container, target_attr)
-        self._restore_asap = restore_asap
         self.patched = False
 
 
@@ -199,8 +198,9 @@ class CallableWrapper(object):
     
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
-        if self._restore_asap:
-            self.restore()
+        self.restore() # restoring original, will patch it back
+                       # in the end of this function
+        
         bound_arg = getattr(wrapped, 'im_self', None) \
                     or getattr(wrapped, 'im_class', None)
         enter_info = CallInfo(*args, type='ENTER', callable=wrapped,
@@ -214,6 +214,9 @@ class CallableWrapper(object):
                 bound_arg=bound_arg, argnames=self.event._argnames, rv=rv, **kwargs)
         exit_value = self.event.fire(exit_info)
         rv = exit_value or rv
+        
+        self.patch() # patching it back
+        
         return rv if rv is not ExplicitNone else None
 
 
@@ -227,10 +230,10 @@ class FunctionCall(Event):
 
     listener_class = CallListener
 
-    def __new__(cls, key, argnames=None, restore_asap=False):
+    def __new__(cls, key, argnames=None):
         return super(FunctionCall, cls).__new__(cls, key)
 
-    def __init__(self, key, argnames=None, restore_asap=False):
+    def __init__(self, key, argnames=None):
         if key in Event.instances:
             return
         if isinstance(key, (str, unicode)):
@@ -240,8 +243,8 @@ class FunctionCall(Event):
             # TODO: probably will be able to figure that out
             #       just from target callable, and get rid of tuple.
             target_container, target_attr = key
-        self.callable_wrapper = CallableWrapper(self, target_container, target_attr,
-                                                restore_asap=restore_asap)
+        self.callable_wrapper = CallableWrapper(self, target_container,
+                                                target_attr)
         self._argnames = argnames
         # Add to events registry in the end
         super(FunctionCall, self).__init__(key)
@@ -298,14 +301,14 @@ def make_groutine(func):
             event = Event(event)
         
         listener_kwargs = kwargs['listener_kwargs']
-        should_stop = (itertools.count() if kwargs['once']
+        should_stop = (itertools.count() if not kwargs['loop']
                        else itertools.repeat(0))
         def f():
             with event.listen(**listener_kwargs):
                 value = switch() # XXX move out ?
                 while not next(should_stop):
                     rv = func(*value, **value.__dict__)
-                    if not kwargs['once']:
+                    if kwargs['loop']:
                         value = switch(rv)
                     else:
                         return rv
@@ -379,7 +382,7 @@ if __name__ == '__main__':
 #        evt = Event('OLD_VALUE').wait()
 #        print evt.value
     
-    @groutine(event=Event('OLD_VALUE'), once=False)
+    @groutine(event=Event('OLD_VALUE'), loop=True)
     def big_value(value):
         return (value + 1)
 #        print(value + 1)

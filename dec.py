@@ -4,7 +4,7 @@
 Here live decorators.
 '''
 
-def groutine(event=None, once=True, **listener_kwargs):
+def groutine(event=None, loop=False, **listener_kwargs):
     '''
     Marks groutine (lazy decorator).
     
@@ -30,7 +30,7 @@ def groutine(event=None, once=True, **listener_kwargs):
     '''
     def decorator(f):
         f._groutine = {'event': event,
-                       'once': once,
+                       'loop': loop,
                        'listener_kwargs': listener_kwargs}
         return f
     return decorator
