@@ -91,8 +91,7 @@ Another small but useful example: when we get a "not ok" response like 400, we c
 Exception is better: it prints the stack of frames. Let's change one with the other: ``Response`` is a class, hence, a callable.
     
     @groutine(FunctionCall('rest_framework.mixins.Response',
-                           argnames=('data', 'status'),
-                           restore_asap=True)
+                           argnames=('data', 'status')))
     def make_responses_raise_exc(data, status, *args, **kw):
         if status // 100 != 2:
             raise Exception(data)
@@ -105,7 +104,12 @@ is smart enough to figure the actual function's signature out.
 
 An example of groutine, that represents an infinite loop:
     
-    groutine(FunctionCall('rest_framework.serializers.Field'
-                           '.field_from_native') ,once=False)
-    def _1(field, data, files, field_name, into, **kw):
+    @groutine(FunctionCall('rest_framework.serializers.Field'
+                           '.field_from_native'), loop=True)
+    def print_field_names(field, data, files, field_name, into, **kw):
         print field_name, '->', into.get(field_name, '----')
+
+TO BE CONTINUED!
+-----------------
+As I said, only the core functionality is provided yet, and since possible extensions / applications of the framework are easier to write than to explain, await new code in the near future!
+
