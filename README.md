@@ -34,8 +34,8 @@ The framework isn't related in any kind to web, but since it's what majority is 
     
     POST /snippets/ title=aaa code=bbb
 
-The code below demonstrates the simplest use of the framework: just patching.
-For an example on how it can be used with [django](https://www.djangoproject.com/), see ``middleware.GMiddleware``.
+The code below allows to add new snippet instance by not authorized user (the action normally forbidden). It  demonstrates the simplest use of the framework: just patching.
+(To see how it was intrgrated with [django](https://www.djangoproject.com/), see ``middleware.GMiddleware``).
 
     @groutine()
     def start_view():
