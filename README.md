@@ -58,7 +58,7 @@ keyword arguments the callable was called with. Two patches (``check_permissions
 and ``fill_user``) show two ways of referencing callables: by absolute import path and by object's attribute (it could be referenced by class atribute 
 as well). 'ENTER' and 'EXIT' are two types of ``FunctionCall`` event: respective, before and after the underlying function call.
 
-Another small but useful example: when we get a "not ok" response like 400, we can't always tell from its message what happened.
+Another small example: when we get a "not ok" response like 400, we can't always tell from its message what happened.
 Exception is better: it prints the stack of frames. Let's change one with the other: ``Response`` is a class, hence, a callable.
     
     @groutine(FunctionCall('rest_framework.response.Response',
@@ -72,7 +72,7 @@ To solve this, you can pass ``argnames`` parameter: now even if some of ``argnam
 In Python 3 the solution wouldn't require passing additional parameter (``argnames``), since [Signature](https://docs.python.org/3/library/inspect.html#inspect.Signature) class
 is smart enough to figure the actual function's signature out.
 
-An example of groutine, that represents an infinite loop:
+An example of groutine that represents an infinite loop:
     
     @groutine(FunctionCall('rest_framework.serializers.Field.field_from_native'),
               loop=True)
