@@ -12,7 +12,8 @@ import inspect
 
 import ipdb
 
-from util import Counter
+import rest_framework
+
 
 class ExplicitNone(object): pass
 
@@ -286,36 +287,6 @@ class CallInfo(Kwartuple):
         if bound_arg:
             args = (bound_arg,) + args
         return super(CallInfo, cls).__new__(cls, *args, **kwargs)
-        
-
-def make_groutine(func):
-    # XXX: refactor to class?
-    assert hasattr(func, '_groutine'), 'Groutine should be marked with a decorator'
-    kwargs = func._groutine
-    if not kwargs['event']:
-        f = func
-    else:
-        event = kwargs['event']
-        if not isinstance(event, Event):
-            # saves typing, but probably too unrestrictive
-            event = Event(event)
-        
-        listener_kwargs = kwargs['listener_kwargs']
-        should_stop = (itertools.count() if not kwargs['loop']
-                       else itertools.repeat(0))
-        def f():
-            with event.listen(**listener_kwargs):
-                value = switch() # XXX move out ?
-                while not next(should_stop):
-                    rv = func(*value, **value.__dict__)
-                    if kwargs['loop']:
-                        value = switch(rv)
-                    else:
-                        return rv
-
-    grinlet = greenlet.greenlet(f)
-    grinlet.switch() # ignore switched value
-    return grinlet
 
 
 class SwitchLogger(object):
@@ -334,12 +305,63 @@ class SwitchLogger(object):
 
 switch_logger = SwitchLogger(100)
 
+
+
+class InstantiateLazily(object):
+    '''
+    Good for use as decorator
+    '''
+    
+    def __new__(cls, *args, **kw):
+        
+        def wrapper(func=None):
+            '''
+            '''
+            instance = super(InstantiateLazily, cls).__new__(cls, *args, **kw)
+            if func:
+                instance.wrapped_function = func
+            instance.__init__(*args, **kw)
+            return instance
+        return wrapper
+
+
+class Groutine(InstantiateLazily):
+    
+    def __init__(self, event=None, **listener_kwargs):
+        self.event = event
+        self.listener_kwargs = listener_kwargs
+        
+    def start(self):
+        self.greenlet = greenlet.greenlet(self)
+        self.greenlet.switch() # ignore switched value
+    
+    def __call__(self):
+        if not hasattr(self, 'wrapped_function'):
+            raise NotImplementedError()
+        if not self.event:
+            return self.wrapped_function()
+        value = self.event.wait(**self.listener_kwargs)
+        return self.wrapped_function(*value, **value.__dict__)
+
+class Loop(Groutine):
+    '''
+    Groutine that reacts to an event every time it happens
+    with the same function.
+    '''
+    
+    def __call__(self):
+        with self.event.listen(**self.listener_kwargs):
+            value = switch()
+            while True:
+                rv = self.wrapped_function(*value, **value.__dict__)
+                value = switch(rv)
+
     
 if __name__ == '__main__':
     
     def start_all(funcs):
         for f in funcs:
-            make_groutine(f)
+            f.start()
     
     class SomeClass(object):
         
@@ -362,13 +384,15 @@ if __name__ == '__main__':
 #            return self.a
 
 
-    from dec import groutine
+#    from dec import groutine
     
-    @groutine()
+    @Groutine()
     def a_greenlet():
         val = FunctionCall((SomeClass, 'middle'),
                            argnames=['default']
                            ).wait()
+#        from pdb import Pdb
+#        Pdb().set_trace(groutines_all['big_value'].gr_frame)
         print val
 #        evt = FunctionCall('__main__.SomeClass.middle').wait()
         for i in range(5):
@@ -382,16 +406,14 @@ if __name__ == '__main__':
 #        evt = Event('OLD_VALUE').wait()
 #        print evt.value
     
-    @groutine(event=Event('OLD_VALUE'), loop=True)
+    @Loop(Event('OLD_VALUE'))
     def big_value(value):
         return (value + 1)
-#        print(value + 1)
 #    
 #    with ipdb.launch_ipdb_on_exception():
     start_all([a_greenlet, big_value
                 ])
     o = SomeClass()
-#    ipdb.set_trace()
     print SomeClass.middle(default=6)
 #    for i in switch_logger.deque: print i
     

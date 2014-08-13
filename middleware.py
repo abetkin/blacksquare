@@ -1,94 +1,39 @@
 # -*- coding: utf-8 -*-
 
-from django.contrib.auth.models import User
+import os
+from groutines import Groutine
+import re
+from util import object_from_name
 
-from groutines import (make_groutine, FunctionCall, Event, switch, greenlet,
-                       wait_any, listen_any,)
-from dec import groutine
-import IPython, ipdb
 
 class GMiddleware(object):
     
-    @property
-    def functions(self):
-        return [
-            start_view, make_responses_raise_exc,
-        ]
+    def find_groutines(self):
+        from django.conf import settings
+        regexp = settings.GROUTINES_FINDER_REGEXP
+        for path, dirs, files in os.walk(settings.BASE_DIR):
+            for fname in files:
+                if not re.match(r'\w+\.py$', fname) or not re.match(regexp, fname):
+                    continue
+                parts = os.path.relpath(path, settings.BASE_DIR
+                                ).split(os.path.sep)
+                # probably exists a more elegant solution for import
+                obj_path = '.'.join(parts + [fname[:-3]]) 
+                _, _, mod = object_from_name(obj_path)
+                for attr in dir(mod):
+                    if isinstance(getattr(mod, attr), Groutine):
+                        yield getattr(mod, attr)
     
     def __init__(self):
-        self.groutines = set()
-    
-    def process_view(self, request, view_func, view_args, view_kwargs):
-        for func in self.functions:
-            gr = make_groutine(func)
-            self.groutines.add(gr)
+        self.groutines = list(self.find_groutines())
         
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        for gr in self.groutines:
+            gr.start()
     
     def process_response(self, request, response):
         for gr in tuple(self.groutines):
-            gr.throw() # killing it
+            gr.greenlet.throw() # killing it
             self.groutines.remove(gr)
         return response
-
-@groutine()
-def start_view():
-    view, request = FunctionCall(
-            'rest_framework.views.APIView.dispatch').wait('ENTER')
-    Event('DISPATCH').fire(view, request)
-
-@groutine(FunctionCall('rest_framework.views.APIView.check_permissions'),
-          typ='ENTER')
-def check_permissions(view, request, **kw):
-    return True
-
-
-@groutine('DISPATCH')
-def fill_user(view, request):
-    _, snippet = FunctionCall((view, 'pre_save')).wait(typ='ENTER')
-    snippet.owner = User.objects.get(username='vitalii')
-
-
-@groutine('DISPATCH')
-def deserialization(view, request):
-    srlzer, data, files = FunctionCall('rest_framework.serializers.Serializer'
-                                       '.from_native',
-                                       argnames=['data', 'files']
-                                       ).wait('ENTER')
-    
-    print srlzer, data
-    
-    
-    code_field = srlzer.fields['code']
-    print FunctionCall((code_field, 'field_from_native')).wait()
- 
-    def _fcalls():
-        for field_name, field in srlzer.fields.items():
-            yield FunctionCall(
-                (field, 'field_from_native'),
-                argnames=['data', 'files', 'field_name', 'into'])
-    while True:
-        field_name, into = wait_any(list(_fcalls()))[-2:]
-        print field_name, '->', into.get(field_name, '----')
-
-
-#@groutine(FunctionCall('rest_framework.serializers.Field'
-#                        '.field_from_native') ,once=False)
-#def _1(field, data, files, field_name, into, **kw):
-#    print field_name, '->', into.get(field_name, '----')
-
-@groutine(FunctionCall('rest_framework.response.Response',
-                       argnames=('data', 'status')))
-def make_responses_raise_exc(data, status, *args, **kw):
-    if status // 100 != 2:
-        raise Exception(data)
-
-#@groutine('DESER_FIELD', once=False)
-#def deserialize_field(field_name, data, into):
-#    event = FunctionCall('rest_framework.serializers.Serializer.field_from_native')
-#    event.wait('ENTER')
-#    event.wait('EXIT')
-    
-#@groutine(1)
-#def f1(view, request):
-#    print request.path
 
