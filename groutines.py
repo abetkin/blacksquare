@@ -2,6 +2,9 @@
 
 from util import object_from_name
 
+import re
+import os
+
 import wrapt
 import greenlet
 import types
@@ -130,34 +133,34 @@ class Event(object):
         for value in values_iter:
             if value is not None: return value
     
-    def listen(self, *args, **kwargs):
+    def listen(self, **kwargs):
         '''
         Create a listener. 
         '''
-        return self.listener_class(self, *args, **kwargs)
+        return self.listener_class(self, **kwargs)
     
-    def wait(self, *listener_args, **listener_kwargs):
+    def wait(self, **listener_kwargs):
         '''
         Shortcut. Listens only until the first firing of the event.
         
         Makes values switch with the listener groutine.
         '''
-        with self.listen(*listener_args, **listener_kwargs):
+        with self.listen(**listener_kwargs):
             return switch()
 
 @contextmanager
-def listen_any(events, *listener_args, **listener_kwargs):
+def listen_any(events, **listener_kwargs):
     listeners = []
     for event in events:
-        listener = event.listen(*listener_args, **listener_kwargs)
+        listener = event.listen(**listener_kwargs)
         listeners.append(listener)
         listener.__enter__()
     yield
     for listener in listeners:
         listener.__exit__()
 
-def wait_any(events, *listener_args, **listener_kwargs):
-    with listen_any(events, *listener_args, **listener_kwargs):
+def wait_any(events, **listener_kwargs):
+    with listen_any(events, **listener_kwargs):
         return switch()
 
 
@@ -356,71 +359,45 @@ class Loop(Groutine):
                 rv = self.wrapped_function(*value, **value.__dict__)
                 value = switch(rv)
 
-    
-if __name__ == '__main__':
-    
-    def start_all(funcs):
-        for f in funcs:
-            f.start()
-    
-    class SomeClass(object):
-        
-        def __init__(self):
-            self.a = 1
-        
-        def start(self):
-            return 1
-        
-        @classmethod
-        def middle(cls, default=2):
-            return default
-        
-        def end(self):
-            return 1
-        
-#        def go(self):
-#            for value in self.start(), SomeClass.middle(default=3), self.end():
-#                self.a += value
-#            return self.a
+## Shortcuts ##
+
+FCall = FunctionCall
 
 
-#    from dec import groutine
+class DefaultGroutinesFinder(object):
     
-    @Groutine()
-    def a_greenlet():
-        val = FunctionCall((SomeClass, 'middle'),
-                           argnames=['default']
-                           ).wait()
-#        from pdb import Pdb
-#        Pdb().set_trace(groutines_all['big_value'].gr_frame)
-        print val
-#        evt = FunctionCall('__main__.SomeClass.middle').wait()
-        for i in range(5):
-            e = Event('OLD_VALUE')
-            print e.fire(value=i)
-        switch(ForceReturn(9))
+    base_dir = None
+    regexp = r'gro\w*\.py'
+    
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+    
+    def discover(self):
+        base_dir = self.base_dir or os.getcwd()
+        groutines = set()
+        for path, dirs, files in os.walk(base_dir):
+            for fname in files:
+                if not re.match(r'\w+\.py$', fname) or not re.match(self.regexp, fname):
+                    continue
+                parts = os.path.relpath(path, base_dir
+                                        ).split(os.path.sep)
+                # probably exists a more elegant solution for import
+                obj_path = '.'.join(parts + [fname[:-3]])
+                print obj_path
+                _, _, mod = object_from_name(obj_path)
+                for attr in dir(mod):
+                    if isinstance(getattr(mod, attr), Groutine):
+                        groutines.add(getattr(mod, attr))
+        return groutines
         
-        
-#    @groutine()
-#    def big_value():
-#        evt = Event('OLD_VALUE').wait()
-#        print evt.value
+
+def main(scenario=None, finder=None):
+    finder = finder or DefaultGroutinesFinder()
+    for groutine in finder.discover():
+        groutine.start()
+    if scenario:
+        scenario()
     
-    @Loop(Event('OLD_VALUE'))
-    def big_value(value):
-        return (value + 1)
-#    
-#    with ipdb.launch_ipdb_on_exception():
-    start_all([a_greenlet, big_value
-                ])
-    o = SomeClass()
-    print SomeClass.middle(default=6)
-#    for i in switch_logger.deque: print i
-    
-#%%
-#def f(*args)
-#%%
-
-
-
+def main2(scenario=None):
+    return 'gen'
     
