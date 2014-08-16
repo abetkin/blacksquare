@@ -21,17 +21,17 @@ class ForceReturn(object):
     def __init__(self, value):
         self.value = value
 
-def switch(value=None):
-    '''
-    Global function: switch values with parent greenlet.
-    '''
-    rv = greenlet.getcurrent().parent.switch(value)
-    
-    # since it's global function and
-    # we presume our programs single-threaded
-    # logging swiches may be helpful.
-    switch_logger.add(value, rv)
-    return rv
+#def switch(value=None):
+#    '''
+#    Global function: switch values with parent greenlet.
+#    '''
+#    rv = greenlet.getcurrent().parent.switch(value)
+#    
+#    # since it's global function and
+#    # we presume our programs single-threaded
+#    # logging swiches may be helpful.
+#    switch_logger.add(value, rv)
+#    return rv
 
 
 class Listener(object):
@@ -51,7 +51,10 @@ class Listener(object):
             return self._greenlet.switch(value)
         except Exception as exc:
             self.handle_exception(exc)
-        
+    
+    def switch2parent(self, value=None):
+        return self._greenlet.parent.switch(value)
+    
     def handle_exception(self, exc):
         raise exc
 
@@ -142,23 +145,23 @@ class Event(object):
         
         Makes values switch with the listener groutine.
         '''
-        with self.listen(*listener_args, **listener_kwargs):
-            return switch()
+        with self.listen(*listener_args, **listener_kwargs) as lnr:
+            return lnr.switch2parent()
 
-@contextmanager
-def listen_any(events, *listener_args, **listener_kwargs):
-    listeners = []
-    for event in events:
-        listener = event.listen(*listener_args, **listener_kwargs)
-        listeners.append(listener)
-        listener.__enter__()
-    yield
-    for listener in listeners:
-        listener.__exit__()
-
-def wait_any(events, *listener_args, **listener_kwargs):
-    with listen_any(events, *listener_args, **listener_kwargs):
-        return switch()
+#@contextmanager
+#def listen_any(events, *listener_args, **listener_kwargs):
+#    listeners = []
+#    for event in events:
+#        listener = event.listen(*listener_args, **listener_kwargs)
+#        listeners.append(listener)
+#        listener.__enter__()
+#    yield
+#    for listener in listeners:
+#        listener.__exit__()
+#
+#def wait_any(events, *listener_args, **listener_kwargs):
+#    with listen_any(events, *listener_args, **listener_kwargs) :
+#        return switch()
 
 
 class CallableWrapper(object):
@@ -308,10 +311,8 @@ switch_logger = SwitchLogger(100)
 
 
 class InstantiateLazily(object):
-    '''
-    Good for use as decorator
-    '''
-    
+
+    # TODO '@'
     def __new__(cls, *args, **kw):
         
         def wrapper(func=None):
@@ -350,11 +351,11 @@ class Loop(Groutine):
     '''
     
     def __call__(self):
-        with self.event.listen(**self.listener_kwargs):
-            value = switch()
+        with self.event.listen(**self.listener_kwargs) as lnr:
+            value = lnr.switch2parent()
             while True:
                 rv = self.wrapped_function(*value, **value.__dict__)
-                value = switch(rv)
+                value = lnr.switch2parent(rv)
 
     
 if __name__ == '__main__':
@@ -398,7 +399,8 @@ if __name__ == '__main__':
         for i in range(5):
             e = Event('OLD_VALUE')
             print e.fire(value=i)
-        switch(ForceReturn(9))
+#        switch(ForceReturn(9))
+        return 9
         
         
 #    @groutine()
@@ -409,18 +411,10 @@ if __name__ == '__main__':
     @Loop(Event('OLD_VALUE'))
     def big_value(value):
         return (value + 1)
-#    
-#    with ipdb.launch_ipdb_on_exception():
-    start_all([a_greenlet, big_value
-                ])
-    o = SomeClass()
-    print SomeClass.middle(default=6)
-#    for i in switch_logger.deque: print i
+
+#    start_all([a_greenlet, big_value
+#                ])
+#    o = SomeClass()
+#    print SomeClass.middle(default=6)
     
-#%%
-#def f(*args)
-#%%
 
-
-
-    
