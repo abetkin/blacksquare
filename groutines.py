@@ -54,9 +54,15 @@ class Listener(object):
             return self._greenlet.switch(value)
         except Exception as exc:
             self.handle_exception(exc)
-        
+    
+#    def switch2parent(self, value=None):
+#        return self._greenlet.parent.switch(value)
+    
     def handle_exception(self, exc):
         raise exc
+
+    def __getattr__(self, attr):
+        return getattr(self._greenlet, attr)
 
     def __enter__(self):
         self.event.listeners.add(self)
@@ -65,7 +71,8 @@ class Listener(object):
     def __exit__(self, *exc_info):
         self.event.listeners.remove(self)
     
-    __str__ = __repr__ = lambda self: 'listener: %s' % self.event.name
+    __str__ = __repr__ = lambda self: 'listener of %s: %s' % (getattr(self._greenlet, 'groutine', '-'),
+                                                              self.event.key)
 
 
 class CallListener(Listener):
@@ -114,23 +121,26 @@ class Event(object):
         Event.instances[key] = self
     
     def fire(self, *args, **kwargs):
+#        if self.key == 'OLD_VALUE':
+#            import ipdb; ipdb.set_trace()
         if len(args) == 1 and isinstance(args[0], Kwartuple):
             value = args[0]
         else:
             value = Kwartuple(*args, **kwargs)
             
-        def _values():
-            for listener in tuple(self.listeners):
-                listener._greenlet.parent = greenlet.getcurrent()
-                yield listener.switch(value)
-        return self.process_responses(_values())
+        responses = []
+        for listener in tuple(self.listeners):
+            listener._greenlet.parent = greenlet.getcurrent()
+            responses.append(
+                    listener.switch(value))
+        return self.process_responses(responses)
     
-    def process_responses(self, values_iter):
+    def process_responses(self, values):
         '''
         Process values listeners switch back with
         in response to fired events.
         '''
-        for value in values_iter:
+        for value in values:
             if value is not None: return value
     
     def listen(self, **kwargs):
@@ -148,6 +158,7 @@ class Event(object):
         with self.listen(**listener_kwargs):
             return switch()
 
+
 @contextmanager
 def listen_any(events, **listener_kwargs):
     listeners = []
@@ -162,7 +173,6 @@ def listen_any(events, **listener_kwargs):
 def wait_any(events, **listener_kwargs):
     with listen_any(events, **listener_kwargs):
         return switch()
-
 
 class CallableWrapper(object):
     '''
@@ -309,55 +319,18 @@ class SwitchLogger(object):
 switch_logger = SwitchLogger(100)
 
 
-
-class InstantiateLazily(object):
-    '''
-    Good for use as decorator
-    '''
+class Groutine(greenlet.greenlet):
     
-    def __new__(cls, *args, **kw):
-        
-        def wrapper(func=None):
-            '''
-            '''
-            instance = super(InstantiateLazily, cls).__new__(cls, *args, **kw)
-            if func:
-                instance.wrapped_function = func
-            instance.__init__(*args, **kw)
-            return instance
-        return wrapper
-
-
-class Groutine(InstantiateLazily):
+    def __init__(self, *args, **kwargs):
+        super(Groutine, self).__init__(*args, **kwargs)
+        self.func = self.run
     
-    def __init__(self, event=None, **listener_kwargs):
-        self.event = event
-        self.listener_kwargs = listener_kwargs
-        
-    def start(self):
-        self.greenlet = greenlet.greenlet(self)
-        self.greenlet.switch() # ignore switched value
+    def __repr__(self):
+        try:
+            return 'Groutine: %s' % self.func.__name__
+        except:
+            return super(Groutine, self).__repr__()
     
-    def __call__(self):
-        if not hasattr(self, 'wrapped_function'):
-            raise NotImplementedError()
-        if not self.event:
-            return self.wrapped_function()
-        value = self.event.wait(**self.listener_kwargs)
-        return self.wrapped_function(*value, **value.__dict__)
-
-class Loop(Groutine):
-    '''
-    Groutine that reacts to an event every time it happens
-    with the same function.
-    '''
-    
-    def __call__(self):
-        with self.event.listen(**self.listener_kwargs):
-            value = switch()
-            while True:
-                rv = self.wrapped_function(*value, **value.__dict__)
-                value = switch(rv)
 
 ## Shortcuts ##
 
