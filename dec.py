@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+'''
+Here live decorators and related stuff
+'''
+
 
 from groutines import Groutine, switch
 

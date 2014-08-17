@@ -15,8 +15,11 @@ def object_from_name(name, module=None):
                     raise
         parts = parts[1:]
 
-    parent = None
     obj = module
+    
+    if not parts:
+        return None, None, obj
+        
     for part in parts:
         parent, obj = obj, getattr(obj, part)
     return parent, part, obj

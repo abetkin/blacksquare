@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from groutines import Groutine, Loop, FCall, switch, ForceReturn, Event, main
+from groutines import FCall, switch, ForceReturn, Event
+from dec import groutine, loop
 
 class SomeClass(object):
     
@@ -22,31 +23,26 @@ def scenario():
     o = SomeClass()
     print SomeClass.middle(default=6)
 
-@Groutine()
+
+@groutine.wrapper()
 def a_greenlet():
-    val = FCall((SomeClass, 'middle'),
+    print FCall((SomeClass, 'middle'),
                        argnames=['default']
                        ).wait()
-#        from pdb import Pdb
-#        Pdb().set_trace(groutines_all['big_value'].gr_frame)
-    print val
-#        evt = FunctionCall('__main__.SomeClass.middle').wait()
     for i in range(5):
         e = Event('OLD_VALUE')
         print e.fire(value=i)
-    switch(ForceReturn(9))
-        
-        
-#    @groutine()
-#    def big_value():
-#        evt = Event('OLD_VALUE').wait()
-#        print evt.value
+    return ForceReturn(9)
     
-@Loop(Event('OLD_VALUE'))
+
+@loop.wrapper(Event('OLD_VALUE'))
 def big_value(value):
     return (value + 1)
-    
-
 
 if __name__ == '__main__':
-    main(scenario)
+    
+    from scenario import IScenario
+    
+    sc = IScenario(scenario, groutines=(a_greenlet, big_value), discover=0
+            )
+    sc.wait()

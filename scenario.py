@@ -2,19 +2,22 @@
 
 from groutines import Groutine, switch
 import greenlet
-from dec import groutine, loop
+from discovery import DefaultFinder
 
 
 class Scenario(Groutine):
     
     started = False
     
-    def __init__(self, scenario, args=(), kwargs={}, groutines=()):
+    def __init__(self, scenario, args=(), kwargs={}, groutines=(),
+                 discover=True, finder=DefaultFinder()):
         greenlet.greenlet.__init__(self)
         self._scenario = scenario
         self.scenario_args = args
         self.scenario_kwargs = kwargs
-        self._groutines = groutines
+        self._groutines = set(groutines)
+        if discover:
+            self._groutines &= set(finder.discover())
     
     def run(self, *args, **kwargs):
         self.started = True
@@ -37,10 +40,9 @@ class InteractiveScenario(Scenario):
     
     response = None
     
-    def __init__(self, scenario, args=(), kwargs={}, groutines=()):
-        self.scenario = Scenario(scenario, args=args, kwargs=kwargs,
-                                 groutines=groutines)
+    def __init__(self, *args, **kwargs):
         greenlet.greenlet.__init__(self)
+        self.scenario = Scenario(*args, **kwargs)
         self.g_out = self.parent
     
     def run(self, *args, **kw):
@@ -80,46 +82,4 @@ IScenario = InteractiveScenario
 
 if __name__ == '__main__':
     
-    from groutines import FunctionCall, Event, ForceReturn
-    
-    class SomeClass(object):
-            
-        def __init__(self):
-            self.a = 1
-        
-        def start(self):
-            return 1
-        
-        @classmethod
-        def middle(cls, default=2):
-            return default
-        
-        def end(self):
-            return 1
-    
-    
-    @groutine.wrapper()
-    def a_greenlet():
-        print FunctionCall((SomeClass, 'middle'),
-                           argnames=['default']
-                           ).wait()
-        for i in range(5):
-            e = Event('OLD_VALUE')
-            print e.fire(value=i)
-        return ForceReturn(9)
-        
-    
-    @loop.wrapper(Event('OLD_VALUE'))
-    def big_value(value):
-        return (value + 1)
-        def sce():
-            o = SomeClass()
-            print SomeClass.middle(default=6)
-    
-    def sce():
-        o = SomeClass()
-        print SomeClass.middle(default=6)
-        
-    sc = IScenario(sce, groutines=[a_greenlet, big_value])
-    sc.wait()
-        
+    1

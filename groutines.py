@@ -2,20 +2,12 @@
 
 from util import object_from_name
 
-import re
-import os
-
-import wrapt
 import greenlet
 import types
 import itertools
 from contextlib import contextmanager
 import collections
-import inspect
-
-import ipdb
-
-import rest_framework
+import wrapt
 
 
 class ExplicitNone(object): pass
@@ -42,27 +34,24 @@ class Listener(object):
     Listens to an event.
     '''
     
-    def __init__(self, event, condition=None, grinlet=None):
+    def __init__(self, event, condition=None, groutine=None):
         self.event = event
         self.condition = condition
-        self._greenlet = grinlet or greenlet.getcurrent()
+        self._groutine = groutine or greenlet.getcurrent()
     
     def switch(self, value):
         if self.condition and not self.condition(value):
             return
         try:
-            return self._greenlet.switch(value)
+            return self._groutine.switch(value)
         except Exception as exc:
             self.handle_exception(exc)
-    
-#    def switch2parent(self, value=None):
-#        return self._greenlet.parent.switch(value)
-    
+
     def handle_exception(self, exc):
         raise exc
 
     def __getattr__(self, attr):
-        return getattr(self._greenlet, attr)
+        return getattr(self._groutine, attr)
 
     def __enter__(self):
         self.event.listeners.add(self)
@@ -71,8 +60,10 @@ class Listener(object):
     def __exit__(self, *exc_info):
         self.event.listeners.remove(self)
     
-    __str__ = __repr__ = lambda self: 'listener of %s: %s' % (getattr(self._greenlet, 'groutine', '-'),
-                                                              self.event.key)
+    def __repr__(self):
+        return 'listener of %s, waiting for %s' % (self._groutine, self.event)
+    
+    __str__ = __repr__
 
 
 class CallListener(Listener):
@@ -98,7 +89,7 @@ class CallListener(Listener):
             self.event.callable_wrapper.restore()
         super(CallListener, self).__exit__(*exc_info)
 
-# TODO: __str__ for classes
+# TODO: __repr__ for classes
 
 class Event(object):
     '''
@@ -130,7 +121,7 @@ class Event(object):
             
         responses = []
         for listener in tuple(self.listeners):
-            listener._greenlet.parent = greenlet.getcurrent()
+            listener._groutine.parent = greenlet.getcurrent()
             responses.append(
                     listener.switch(value))
         return self.process_responses(responses)
@@ -157,6 +148,11 @@ class Event(object):
         '''
         with self.listen(**listener_kwargs):
             return switch()
+    
+    def __repr__(self):
+        return 'Event %s' % self.key
+    
+    __str__ = __repr__
 
 
 @contextmanager
@@ -271,6 +267,10 @@ class FunctionCall(Event):
             values.append(value)
         return super(FunctionCall, self).process_responses(values)
 
+    def __repr__(self):
+        return 'FCall %s' % self.callable_wrapper._target.__name__
+    
+    __str__ = __repr__
 
 class Kwartuple(tuple):
     '''
@@ -302,7 +302,23 @@ class CallInfo(Kwartuple):
         return super(CallInfo, cls).__new__(cls, *args, **kwargs)
 
 
+class Groutine(greenlet.greenlet):
+    
+    def __init__(self, *args, **kwargs):
+        super(Groutine, self).__init__(*args, **kwargs)
+        self.func = self.run
+    
+    def __repr__(self):
+        try:
+            return 'Groutine: %s' % self.func.__name__
+        except:
+            return super(Groutine, self).__repr__()
+
+
 class SwitchLogger(object):
+    '''
+    Actually not used yet.
+    '''
     
     def __init__(self, maxlen=10):
         self.deque = collections.deque(maxlen=maxlen)
@@ -318,59 +334,6 @@ class SwitchLogger(object):
 
 switch_logger = SwitchLogger(100)
 
-
-class Groutine(greenlet.greenlet):
-    
-    def __init__(self, *args, **kwargs):
-        super(Groutine, self).__init__(*args, **kwargs)
-        self.func = self.run
-    
-    def __repr__(self):
-        try:
-            return 'Groutine: %s' % self.func.__name__
-        except:
-            return super(Groutine, self).__repr__()
-    
-
 ## Shortcuts ##
 
 FCall = FunctionCall
-
-
-class DefaultGroutinesFinder(object):
-    
-    base_dir = None
-    regexp = r'gro\w*\.py'
-    
-    def __init__(self, **kw):
-        self.__dict__.update(kw)
-    
-    def discover(self):
-        base_dir = self.base_dir or os.getcwd()
-        groutines = set()
-        for path, dirs, files in os.walk(base_dir):
-            for fname in files:
-                if not re.match(r'\w+\.py$', fname) or not re.match(self.regexp, fname):
-                    continue
-                parts = os.path.relpath(path, base_dir
-                                        ).split(os.path.sep)
-                # probably exists a more elegant solution for import
-                obj_path = '.'.join(parts + [fname[:-3]])
-                print obj_path
-                _, _, mod = object_from_name(obj_path)
-                for attr in dir(mod):
-                    if isinstance(getattr(mod, attr), Groutine):
-                        groutines.add(getattr(mod, attr))
-        return groutines
-        
-
-def main(scenario=None, finder=None):
-    finder = finder or DefaultGroutinesFinder()
-    for groutine in finder.discover():
-        groutine.start()
-    if scenario:
-        scenario()
-    
-def main2(scenario=None):
-    return 'gen'
-    
