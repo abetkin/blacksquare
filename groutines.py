@@ -52,11 +52,14 @@ class Listener(object):
         except Exception as exc:
             self.handle_exception(exc)
     
-    def switch2parent(self, value=None):
-        return self._greenlet.parent.switch(value)
+#    def switch2parent(self, value=None):
+#        return self._greenlet.parent.switch(value)
     
     def handle_exception(self, exc):
         raise exc
+
+    def __getattr__(self, attr):
+        return getattr(self._greenlet, attr)
 
     def __enter__(self):
         self.event.listeners.add(self)
@@ -65,7 +68,8 @@ class Listener(object):
     def __exit__(self, *exc_info):
         self.event.listeners.remove(self)
     
-    __str__ = __repr__ = lambda self: 'listener: %s' % self.event.name
+    __str__ = __repr__ = lambda self: 'listener of %s: %s' % (getattr(self._greenlet, 'groutine', '-'),
+                                                              self.event.key)
 
 
 class CallListener(Listener):
@@ -114,23 +118,26 @@ class Event(object):
         Event.instances[key] = self
     
     def fire(self, *args, **kwargs):
+#        if self.key == 'OLD_VALUE':
+#            import ipdb; ipdb.set_trace()
         if len(args) == 1 and isinstance(args[0], Kwartuple):
             value = args[0]
         else:
             value = Kwartuple(*args, **kwargs)
             
-        def _values():
-            for listener in tuple(self.listeners):
-                listener._greenlet.parent = greenlet.getcurrent()
-                yield listener.switch(value)
-        return self.process_responses(_values())
+        responses = []
+        for listener in tuple(self.listeners):
+            listener._greenlet.parent = greenlet.getcurrent()
+            responses.append(
+                    listener.switch(value))
+        return self.process_responses(responses)
     
-    def process_responses(self, values_iter):
+    def process_responses(self, values):
         '''
         Process values listeners switch back with
         in response to fired events.
         '''
-        for value in values_iter:
+        for value in values:
             if value is not None: return value
     
     def listen(self, *args, **kwargs):
@@ -146,7 +153,7 @@ class Event(object):
         Makes values switch with the listener groutine.
         '''
         with self.listen(*listener_args, **listener_kwargs) as lnr:
-            return lnr.switch2parent()
+            return lnr.parent.switch()
 
 #@contextmanager
 #def listen_any(events, *listener_args, **listener_kwargs):
@@ -312,7 +319,7 @@ switch_logger = SwitchLogger(100)
 
 class InstantiateLazily(object):
 
-    # TODO '@'
+    # TODO -> dec
     def __new__(cls, *args, **kw):
         
         def wrapper(func=None):
@@ -334,7 +341,13 @@ class Groutine(InstantiateLazily):
         
     def start(self):
         self.greenlet = greenlet.greenlet(self)
+        self.greenlet.groutine = self
         self.greenlet.switch() # ignore switched value
+    
+    def __getattr__(self, attr):
+        if not hasattr(self, 'greenlet'):
+            raise AttributeError(attr)
+        return getattr(self.greenlet, attr)
     
     def __call__(self):
         if not hasattr(self, 'wrapped_function'):
@@ -352,10 +365,10 @@ class Loop(Groutine):
     
     def __call__(self):
         with self.event.listen(**self.listener_kwargs) as lnr:
-            value = lnr.switch2parent()
+            value = lnr.parent.switch()
             while True:
                 rv = self.wrapped_function(*value, **value.__dict__)
-                value = lnr.switch2parent(rv)
+                value = lnr.parent.switch(rv)
 
     
 if __name__ == '__main__':
@@ -412,9 +425,9 @@ if __name__ == '__main__':
     def big_value(value):
         return (value + 1)
 
-#    start_all([a_greenlet, big_value
-#                ])
-#    o = SomeClass()
-#    print SomeClass.middle(default=6)
+    start_all([a_greenlet, big_value
+                ])
+    o = SomeClass()
+    print SomeClass.middle(default=6)
     
 

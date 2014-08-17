@@ -38,11 +38,8 @@ class genlet(greenlet):
 
     def wait(self, event, **kw):
         with event.listen(grinlet=self, **kw) as lnr:
-            return lnr.switch2parent()
+            return lnr.parent.switch()
 
-    def run(self):
-        while True:
-            self.func(*self.args, **self.kwargs)
 
     def __iter__(self):
         return self
@@ -73,7 +70,7 @@ class genlet(greenlet):
 from groutines import *
 
 class SomeClass(object):
-    
+        
     def __init__(self):
         self.a = 1
     
@@ -105,7 +102,8 @@ def a_greenlet():
     for i in range(5):
         e = Event('OLD_VALUE')
         print e.fire(value=i)
-    switch(ForceReturn(9))
+#    switch(ForceReturn(9))
+    return ForceReturn(9)
     
 
 @Loop(Event('OLD_VALUE'))
@@ -121,16 +119,30 @@ def scenario(func):
         return func(*args, **kw)
     return Groutine()(wrapper)
 
+parent = None
+
+def wait(event, **kw):
+    with event.listen(**kw) as lnr:
+        result = sce.switch()
+    main_g.switch(result)
+
+
+class IGroutine(Groutine):
+    '''
+    Interactive.
+    '''
+    
+
 @scenario
 def sce():
     o = SomeClass()
     print SomeClass.middle(default=6)
 
 if __name__ == '__main__':
+    main_g = greenlet.getcurrent()
     for gr in [a_greenlet, big_value, sce]:
         gr.start()
-    gg = genlet()
-    gg.parent = sce.greenlet
-    print gg.wait(EV)
+    gg = greenlet.greenlet(wait)
+    print gg.switch(Event('OLD_VALUE'))
     
     
