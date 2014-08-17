@@ -21,17 +21,17 @@ class ForceReturn(object):
     def __init__(self, value):
         self.value = value
 
-#def switch(value=None):
-#    '''
-#    Global function: switch values with parent greenlet.
-#    '''
-#    rv = greenlet.getcurrent().parent.switch(value)
-#    
-#    # since it's global function and
-#    # we presume our programs single-threaded
-#    # logging swiches may be helpful.
-#    switch_logger.add(value, rv)
-#    return rv
+def switch(value=None):
+    '''
+    Global function: switch values with parent greenlet.
+    '''
+    rv = greenlet.getcurrent().parent.switch(value)
+    
+    # since it's global function and
+    # we presume our programs single-threaded
+    # logging swiches may be helpful.
+    switch_logger.add(value, rv)
+    return rv
 
 
 class Listener(object):
@@ -152,8 +152,8 @@ class Event(object):
         
         Makes values switch with the listener groutine.
         '''
-        with self.listen(*listener_args, **listener_kwargs) as lnr:
-            return lnr.parent.switch()
+        with self.listen(*listener_args, **listener_kwargs):
+            return switch()
 
 #@contextmanager
 #def listen_any(events, *listener_args, **listener_kwargs):
@@ -316,66 +316,25 @@ class SwitchLogger(object):
 switch_logger = SwitchLogger(100)
 
 
-
-class InstantiateLazily(object):
-
-    # TODO -> dec
-    def __new__(cls, *args, **kw):
-        
-        def wrapper(func=None):
-            '''
-            '''
-            instance = super(InstantiateLazily, cls).__new__(cls, *args, **kw)
-            if func:
-                instance.wrapped_function = func
-            instance.__init__(*args, **kw)
-            return instance
-        return wrapper
-
-
-class Groutine(InstantiateLazily):
+class Groutine(greenlet.greenlet):
     
-    def __init__(self, event=None, **listener_kwargs):
-        self.event = event
-        self.listener_kwargs = listener_kwargs
-        
-    def start(self):
-        self.greenlet = greenlet.greenlet(self)
-        self.greenlet.groutine = self
-        self.greenlet.switch() # ignore switched value
+    def __init__(self, *args, **kwargs):
+        super(Groutine, self).__init__(*args, **kwargs)
+        self.func = self.run
     
-    def __getattr__(self, attr):
-        if not hasattr(self, 'greenlet'):
-            raise AttributeError(attr)
-        return getattr(self.greenlet, attr)
+    def __repr__(self):
+        try:
+            return 'Groutine: %s' % self.func.__name__
+        except:
+            return super(Groutine, self).__repr__()
     
-    def __call__(self):
-        if not hasattr(self, 'wrapped_function'):
-            raise NotImplementedError()
-        if not self.event:
-            return self.wrapped_function()
-        value = self.event.wait(**self.listener_kwargs)
-        return self.wrapped_function(*value, **value.__dict__)
-
-class Loop(Groutine):
-    '''
-    Groutine that reacts to an event every time it happens
-    with the same function.
-    '''
-    
-    def __call__(self):
-        with self.event.listen(**self.listener_kwargs) as lnr:
-            value = lnr.parent.switch()
-            while True:
-                rv = self.wrapped_function(*value, **value.__dict__)
-                value = lnr.parent.switch(rv)
 
     
 if __name__ == '__main__':
     
     def start_all(funcs):
-        for f in funcs:
-            f.start()
+        for gr in funcs:
+            gr.switch()
     
     class SomeClass(object):
         
@@ -398,9 +357,9 @@ if __name__ == '__main__':
 #            return self.a
 
 
-#    from dec import groutine
+    from dec import groutine, loop
     
-    @Groutine()
+    @groutine()
     def a_greenlet():
         val = FunctionCall((SomeClass, 'middle'),
                            argnames=['default']
@@ -421,7 +380,7 @@ if __name__ == '__main__':
 #        evt = Event('OLD_VALUE').wait()
 #        print evt.value
     
-    @Loop(Event('OLD_VALUE'))
+    @loop(Event('OLD_VALUE'))
     def big_value(value):
         return (value + 1)
 
