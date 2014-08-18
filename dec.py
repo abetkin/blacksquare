@@ -7,7 +7,7 @@ Here live decorators and related stuff
 
 from groutines import Groutine, switch
 
-class groutine(object):
+class groutine(object): # -> GroutineCallable
     '''
     Wraps functions supposed to be groutines.
     '''
@@ -26,6 +26,7 @@ class groutine(object):
     def __call__(self):
         if not self.event:
             return self.function()
+        import ipdb; ipdb.set_trace()
         value = self.event.wait(**self.listener_kwargs)
         return self.function(*value, **value.__dict__)
 
