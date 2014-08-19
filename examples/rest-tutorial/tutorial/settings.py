@@ -128,7 +128,6 @@ INSTALLED_APPS = (
     'rest_framework',
     'snippets',
     'django_extensions',
-    'django_pdb',
 )
 
 # A sample logging configuration. The only tangible logging

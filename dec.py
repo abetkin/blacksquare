@@ -26,7 +26,6 @@ class groutine(object): # -> GroutineCallable
     def __call__(self):
         if not self.event:
             return self.function()
-        import ipdb; ipdb.set_trace()
         value = self.event.wait(**self.listener_kwargs)
         return self.function(*value, **value.__dict__)
 

@@ -17,7 +17,6 @@ class GMiddleware(object):
         
     def process_view(self, request, view_func, view_args, view_kwargs):
         self.groutines = []
-        import ipdb; ipdb.set_trace()
         for func in self._groutines:
             gr = Groutine(func)
             self.groutines.append(gr)
