@@ -20,6 +20,7 @@ def switch(value=None):
     '''
     Global function: switch values with parent greenlet.
     '''
+    print '%s sw %s' % (greenlet.getcurrent(), greenlet.getcurrent().parent)
     rv = greenlet.getcurrent().parent.switch(value)
     
     # since it's global function and
@@ -44,11 +45,15 @@ class Listener(object):
             return
         try:
             return self._groutine.switch(value)
-        except Exception as exc:
-            self.handle_exception(exc)
+        except ValueError as exc:
+#            if exc.message == 'cyclic parent chain': #TODO
+#            import groutines
+#            for gr in groutines.all_gr:
+#                print '%s oo> %s' % (gr, gr.parent)
+            raise
 
-    def handle_exception(self, exc):
-        raise exc
+#    def handle_exception(self, exc):
+#        if isinstance(exc, ValueError)
 
     def __getattr__(self, attr):
         return getattr(self._groutine, attr)
@@ -122,6 +127,7 @@ class Event(object):
         responses = []
         for listener in tuple(self.listeners):
             listener._groutine.parent = greenlet.getcurrent()
+            print '%s => %s' % (listener._groutine, listener._groutine.parent)
             responses.append(
                     listener.switch(value))
         return self.process_responses(responses)
@@ -310,9 +316,11 @@ class Groutine(greenlet.greenlet):
     
     def __repr__(self):
         try:
-            return 'Groutine: %s' % self.func.__name__
+            return '%s: %s' % (self.func.__name__, self.__class__.__name__)
         except:
             return super(Groutine, self).__repr__()
+    
+    __str__ = __repr__
 
 
 class SwitchLogger(object):

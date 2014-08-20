@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import groutines
 from groutines import Groutine, switch
 import greenlet
 from discovery import DefaultFinder
@@ -11,7 +12,7 @@ class Scenario(Groutine):
     
     def __init__(self, scenario, args=(), kwargs={}, groutines=(),
                  discover=True, finder=DefaultFinder()):
-        greenlet.greenlet.__init__(self)
+        Groutine.__init__(self)
         self._scenario = scenario
         self.scenario_args = args
         self.scenario_kwargs = kwargs
@@ -25,7 +26,12 @@ class Scenario(Groutine):
         for func in self._groutines:
             gr = Groutine(func)
             self.groutines.append(gr)
+            import ipdb; ipdb.set_trace()
             gr.switch()
+        #
+        groutines.all_gr = self.groutines
+        print self.groutines
+        #
         rv = self._scenario(*self.scenario_args, **self.scenario_kwargs)
         for gr in self.groutines:
             gr.throw()
@@ -41,7 +47,7 @@ class InteractiveScenario(Scenario):
     response = None
     
     def __init__(self, *args, **kwargs):
-        greenlet.greenlet.__init__(self)
+        Groutine.__init__(self)
         self.scenario = Scenario(*args, **kwargs)
         self.g_out = self.parent
     
@@ -59,6 +65,7 @@ class InteractiveScenario(Scenario):
             with lnr:
                 if not self.scenario.started:
                     self.scenario.parent = self
+                    print '%s -> %s' % (self.scenario, self)
                     value = self.scenario.switch()
                 else:
                     value = switch(response)
