@@ -20,7 +20,7 @@ def switch(value=None):
     '''
     Global function: switch values with parent greenlet.
     '''
-    print '%s sw %s' % (greenlet.getcurrent(), greenlet.getcurrent().parent)
+#    print '%s sw %s' % (greenlet.getcurrent(), greenlet.getcurrent().parent)
     rv = greenlet.getcurrent().parent.switch(value)
     
     # since it's global function and
@@ -127,7 +127,7 @@ class Event(object):
         responses = []
         for listener in tuple(self.listeners):
             listener._groutine.parent = greenlet.getcurrent()
-            print '%s => %s' % (listener._groutine, listener._groutine.parent)
+#            print '%s => %s' % (listener._groutine, listener._groutine.parent)
             responses.append(
                     listener.switch(value))
         return self.process_responses(responses)

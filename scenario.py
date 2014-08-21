@@ -30,7 +30,7 @@ class Scenario(Groutine):
             gr.switch()
         #
         groutines.all_gr = self.groutines
-        print self.groutines
+        print (self.groutines)
         #
         rv = self._scenario(*self.scenario_args, **self.scenario_kwargs)
         for gr in self.groutines:
@@ -65,7 +65,7 @@ class InteractiveScenario(Scenario):
             with lnr:
                 if not self.scenario.started:
                     self.scenario.parent = self
-                    print '%s -> %s' % (self.scenario, self)
+#                    print '%s -> %s' % (self.scenario, self)
                     value = self.scenario.switch()
                 else:
                     value = switch(response)
@@ -89,4 +89,19 @@ IScenario = InteractiveScenario
 
 if __name__ == '__main__':
     
-    1
+    import django
+    print (django.get_version())
+    import os
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'tutorial.settings'
+    django.setup()
+    
+    os.chdir('/home/vitalii/projects/groutines/examples/rest-tutorial')
+    
+    from django.test import Client
+    cl = Client()
+    
+    def sce():
+        cl.get('/')
+    
+    isce = IScenario(sce)
+    isce.wait(groutines.Event('RESP'))
