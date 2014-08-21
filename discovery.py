@@ -42,4 +42,4 @@ if __name__ == '__main__':
     
     finder = DefaultFinder()
     gs = finder.discover()
-    print gs
+    print (gs)

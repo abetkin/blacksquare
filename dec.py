@@ -45,6 +45,6 @@ if __name__ == '__main__':
     def f():
         return 1
     f = Groutine(f)
-    print f.switch()
+    print (f.switch())
     
     

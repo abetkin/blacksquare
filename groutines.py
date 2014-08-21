@@ -107,7 +107,7 @@ class Event(object):
     def __new__(cls, key):
         if key in Event.instances:
             return Event.instances[key]
-        return super(Event, cls).__new__(cls, key)
+        return super(Event, cls).__new__(cls)
 
     def __init__(self, key):
         if key in Event.instances:
@@ -195,11 +195,12 @@ class CallableWrapper(object):
         '''
         Replace original with wrapper.
         '''
-        if (isinstance(self._target, types.UnboundMethodType)
-                and isinstance(self._target.__self__, type)):
+        try:
+            assert isinstance(self._target, types.UnboundMethodType)
+            assert isinstance(self._target.__self__, type)
             # if it's a classmethod
             target = classmethod(self._target.__func__)
-        else:
+        except:
             target = self._target
         setattr(self._target_parent, self._target_attribute, self(target))
         self.patched = True
@@ -252,7 +253,7 @@ class FunctionCall(Event):
     def __init__(self, key, argnames=None):
         if key in Event.instances:
             return
-        if isinstance(key, (str, unicode)):
+        if isinstance(key, str):
             target_container, target_attr, _ = object_from_name(key) 
         else:
             assert len(key) == 2

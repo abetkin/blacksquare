@@ -95,7 +95,7 @@ if __name__ == '__main__':
     os.environ['DJANGO_SETTINGS_MODULE'] = 'tutorial.settings'
     django.setup()
     
-    os.chdir('/home/vitalii/projects/groutines/examples/rest-tutorial')
+    os.chdir('/home/vitalii/projects/gr_other_branch/examples/rest-tutorial')
     
     from django.test import Client
     cl = Client()
