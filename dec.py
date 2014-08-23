@@ -35,11 +35,11 @@ class groutine(object): # -> GroutineCallable
 class loop(groutine):
     
     def __call__(self):
-        with self.event.listen(**self.listener_kwargs):
-            value = switch()
+        with self.event.listen(**self.listener_kwargs) as lnr:
+            value = lnr.switch()
             while True:
                 rv = self.function(*value, **value.__dict__)
-                value = switch(rv)
+                value = lnr.switch(rv)
 
 if __name__ == '__main__':
     @groutine.wrapper()

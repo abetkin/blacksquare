@@ -16,20 +16,6 @@ class ForceReturn(object):
     def __init__(self, value):
         self.value = value
 
-def switch(value=None):
-    '''
-    Global function: switch values with parent greenlet.
-    '''
-#    print '%s sw %s' % (greenlet.getcurrent(), greenlet.getcurrent().parent)
-    rv = greenlet.getcurrent().parent.switch(value)
-    
-    # since it's global function and
-    # we presume our programs single-threaded
-    # logging swiches may be helpful.
-    switch_logger.add(value, rv)
-    return rv
-
-
 class Listener(object):
     '''
     Listens to an event.
@@ -38,41 +24,32 @@ class Listener(object):
     def __init__(self, event, condition=None, groutine=None):
         self.event = event
         self.condition = condition
-        self._groutine = groutine or greenlet.getcurrent()
+        self._groutine = groutine or greenlet.getcurrent() # TODO rename
+        self.receiver = self._groutine.parent
     
-    def switch(self, value):
+    def switch(self, value=None):
         if self.condition and not self.condition(value):
             return
-        try:
-            return self._groutine.switch(value)
-        except ValueError as exc:
-            #XXX
-            raise
+        return self._groutine.switch(value)
     
-    def switch_as_parent(self, value=None):
-        if self.condition and not self.condition(value):
-            return
-        return self._groutine.switch_as_parent(value)
-
-    def __getattr__(self, attr):
-        return getattr(self._groutine, attr)
+    def send(self, value=None):
+        self.receiver.switch(value)
 
     def __enter__(self):
         self.event.listeners.add(self)
-        return self # XXX maybe smth else ?
+        return self
     
     def __exit__(self, *exc_info):
         self.event.listeners.remove(self)
     
     def __repr__(self):
-#        return 'listener of %s, waiting for %s' % (self._groutine, self.event)
-        return repr(self._groutine)
+        return 'on %(event)s: %(_groutine)s -> %(receiver)' % self.__dict__
         
     __str__ = __repr__
 
 
 class CallListener(Listener):
-    
+
     def __init__(self, event, typ='EXIT', condition=None, grinlet=None):
         
         def _condition(value):
@@ -124,8 +101,8 @@ class Event(object):
             
         responses = []
         for listener in tuple(self.listeners):
-#            listener._groutine.parent = greenlet.getcurrent()
-            resp = listener.switch_as_parent(value)
+            listener.receiver = greenlet.getcurrent()
+            resp = listener.switch(value)
             responses.append(resp)
         return self.process_responses(responses)
     
@@ -149,8 +126,8 @@ class Event(object):
         
         Makes values switch with the listener groutine.
         '''
-        with self.listen(**listener_kwargs):
-            return switch()
+        with self.listen(**listener_kwargs) as lnr:
+            return lnr.switch()
     
     def __repr__(self):
         return 'Event %s' % self.key
@@ -158,20 +135,21 @@ class Event(object):
     __str__ = __repr__
 
 
-@contextmanager
-def listen_any(events, **listener_kwargs):
-    listeners = []
-    for event in events:
-        listener = event.listen(**listener_kwargs)
-        listeners.append(listener)
-        listener.__enter__()
-    yield
-    for listener in listeners:
-        listener.__exit__()
-
-def wait_any(events, **listener_kwargs):
-    with listen_any(events, **listener_kwargs):
-        return switch()
+# TODO rewrite
+#@contextmanager
+#def listen_any(events, **listener_kwargs):
+#    listeners = []
+#    for event in events:
+#        listener = event.listen(**listener_kwargs)
+#        listeners.append(listener)
+#        listener.__enter__()
+#    yield
+#    for listener in listeners:
+#        listener.__exit__()
+#
+#def wait_any(events, **listener_kwargs):
+#    with listen_any(events, **listener_kwargs):
+#        return switch()
 
 class CallableWrapper(object):
     '''
@@ -344,26 +322,6 @@ class Groutine(greenlet.greenlet):
             return super(Groutine, self).__repr__()
     
     __str__ = __repr__
-
-
-class SwitchLogger(object):
-    '''
-    Actually not used yet.
-    '''
-    
-    def __init__(self, maxlen=10):
-        self.deque = collections.deque(maxlen=maxlen)
-        self._counter = itertools.count()
-        self.count = next(self._counter)
-    
-    def add(self, forth, back):
-        self.deque.append((forth, back))
-        self.count = next(self._counter)
-    
-    def __getitem__(self,key):
-        return self.deque[key]
-
-switch_logger = SwitchLogger(100)
 
 ## Shortcuts ##
 
