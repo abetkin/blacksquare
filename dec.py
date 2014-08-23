@@ -15,6 +15,7 @@ class groutine(object): # -> GroutineCallable
         self.function = function
         self.event = event
         self.listener_kwargs = listener_kwargs
+        self.__name__ = self.function.__name__
     
     @classmethod
     def wrapper(cls, *args, **kwargs):

@@ -46,14 +46,13 @@ class Listener(object):
         try:
             return self._groutine.switch(value)
         except ValueError as exc:
-#            if exc.message == 'cyclic parent chain': #TODO
-#            import groutines
-#            for gr in groutines.all_gr:
-#                print '%s oo> %s' % (gr, gr.parent)
+            #XXX
             raise
-
-#    def handle_exception(self, exc):
-#        if isinstance(exc, ValueError)
+    
+    def switch_as_parent(self, value=None):
+        if self.condition and not self.condition(value):
+            return
+        return self._groutine.switch_as_parent(value)
 
     def __getattr__(self, attr):
         return getattr(self._groutine, attr)
@@ -66,8 +65,9 @@ class Listener(object):
         self.event.listeners.remove(self)
     
     def __repr__(self):
-        return 'listener of %s, waiting for %s' % (self._groutine, self.event)
-    
+#        return 'listener of %s, waiting for %s' % (self._groutine, self.event)
+        return repr(self._groutine)
+        
     __str__ = __repr__
 
 
@@ -117,8 +117,6 @@ class Event(object):
         Event.instances[key] = self
     
     def fire(self, *args, **kwargs):
-#        if self.key == 'OLD_VALUE':
-#            import ipdb; ipdb.set_trace()
         if len(args) == 1 and isinstance(args[0], Kwartuple):
             value = args[0]
         else:
@@ -126,10 +124,9 @@ class Event(object):
             
         responses = []
         for listener in tuple(self.listeners):
-            listener._groutine.parent = greenlet.getcurrent()
-#            print '%s => %s' % (listener._groutine, listener._groutine.parent)
-            responses.append(
-                    listener.switch(value))
+#            listener._groutine.parent = greenlet.getcurrent()
+            resp = listener.switch_as_parent(value)
+            responses.append(resp)
         return self.process_responses(responses)
     
     def process_responses(self, values):
@@ -217,7 +214,6 @@ class CallableWrapper(object):
     def __call__(self, wrapped, instance, args, kwargs):
         self.restore() # restoring original, will patch it back
                        # in the end of this function
-        
         bound_arg = getattr(wrapped, 'im_self', None) \
                     or getattr(wrapped, 'im_class', None)
         enter_info = CallInfo(*args, type='ENTER', callable=wrapped,
@@ -308,6 +304,12 @@ class CallInfo(Kwartuple):
             args = (bound_arg,) + args
         return super(CallInfo, cls).__new__(cls, *args, **kwargs)
 
+def is_parent(greenlet1, greenlet2):
+    g = greenlet2.parent
+    while g is not None:
+        if g == greenlet1:
+            return True
+        g = g.parent
 
 class Groutine(greenlet.greenlet):
     
@@ -315,10 +317,30 @@ class Groutine(greenlet.greenlet):
         super(Groutine, self).__init__(*args, **kwargs)
         self.func = self.run
     
+    def switch_as_parent(self, value=None):
+#        with ipdb.launch_ipdb_on_exception():
+        source = greenlet.getcurrent()
+#        if source.__class__.__name__ == 'InteractiveScenario' \
+#        and self.__class__.__name__ == 'Scenario':
+#            ipdb.set_trace()
+        orig_parent = self.parent
+        source_parent_changed = False
+        if is_parent(self, source):
+            source_parent = source.parent
+            source_parent_changed = True
+            source.parent = self.parent
+        self.parent = source
+        resp = self.switch(value)
+        self.parent = orig_parent
+        if source_parent_changed:
+            source.parent = source_parent
+        return resp
+    
     def __repr__(self):
         try:
             return '%s: %s' % (self.func.__name__, self.__class__.__name__)
-        except:
+        except Exception as exc:
+            print exc
             return super(Groutine, self).__repr__()
     
     __str__ = __repr__

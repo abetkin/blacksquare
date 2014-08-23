@@ -26,7 +26,7 @@ class Scenario(Groutine):
         for func in self._groutines:
             gr = Groutine(func)
             self.groutines.append(gr)
-            import ipdb; ipdb.set_trace()
+#            import ipdb; ipdb.set_trace()
             gr.switch()
         #
         groutines.all_gr = self.groutines
@@ -49,7 +49,9 @@ class InteractiveScenario(Scenario):
     def __init__(self, *args, **kwargs):
         Groutine.__init__(self)
         self.scenario = Scenario(*args, **kwargs)
-        self.g_out = self.parent
+        self.scenario.parent = self.parent
+        self.parent = self.scenario
+#        self.g_out = self.parent
     
     def run(self, *args, **kw):
         
@@ -64,14 +66,12 @@ class InteractiveScenario(Scenario):
                 lnr = noop()
             with lnr:
                 if not self.scenario.started:
-                    self.scenario.parent = self
-#                    print '%s -> %s' % (self.scenario, self)
-                    value = self.scenario.switch()
+                    value = self.scenario.switch_as_parent()
                 else:
                     value = switch(response)
             if self.scenario.dead:
                 return value
-            response = self.g_out.switch(value)
+            response = self.scenario.switch(value)
     
     def reply(self, value):
         self.response = value
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     os.environ['DJANGO_SETTINGS_MODULE'] = 'tutorial.settings'
     django.setup()
     
-    os.chdir('/home/vitalii/projects/gr_other_branch/examples/rest-tutorial')
+    os.chdir('/home/vitalii/projects/groutines/examples/rest-tutorial')
     
     from django.test import Client
     cl = Client()
@@ -104,4 +104,5 @@ if __name__ == '__main__':
         cl.get('/')
     
     isce = IScenario(sce)
-    isce.wait(groutines.Event('RESP'))
+    isce.wait(groutines.Event('RESP')
+    )
