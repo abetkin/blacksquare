@@ -1,5 +1,5 @@
 
-from groutines import FCall, Event, switch
+from groutines import FCall, Event
 from dec import groutine
 
 @groutine.wrapper()
@@ -12,13 +12,14 @@ def dispatch(#view, req, **kw
              ):
     value = FCall('rest_framework.views.APIView.dispatch').wait()
     view, req = value
-#    import ipdb; ipdb.set_trace()
-    Event('DISPATCH').fire(view, None)
+    
+    Event('DISPATCH').fire(view, req)
     Event('RESP').fire(value.rv.data)
     
 
 @groutine.wrapper(Event('RESP'))
 def respons(resp):
+    print '!'
     print (resp)
     
 @groutine.wrapper(Event('DISPATCH'))

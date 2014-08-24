@@ -28,12 +28,14 @@ class Listener(object):
         self.receiver = self._groutine.parent
     
     def switch(self, value=None):
+        # check the condition and call groutine.switch()
+        #
         if self.condition and not self.condition(value):
             return
         return self._groutine.switch(value)
     
     def send(self, value=None):
-        self.receiver.switch(value)
+        return self.receiver.switch(value)
 
     def __enter__(self):
         self.event.listeners.add(self)
@@ -127,7 +129,7 @@ class Event(object):
         Makes values switch with the listener groutine.
         '''
         with self.listen(**listener_kwargs) as lnr:
-            return lnr.switch()
+            return lnr.send()
     
     def __repr__(self):
         return 'Event %s' % self.key
@@ -294,26 +296,7 @@ class Groutine(greenlet.greenlet):
     def __init__(self, *args, **kwargs):
         super(Groutine, self).__init__(*args, **kwargs)
         self.func = self.run
-    
-    def switch_as_parent(self, value=None):
-#        with ipdb.launch_ipdb_on_exception():
-        source = greenlet.getcurrent()
-#        if source.__class__.__name__ == 'InteractiveScenario' \
-#        and self.__class__.__name__ == 'Scenario':
-#            ipdb.set_trace()
-        orig_parent = self.parent
-        source_parent_changed = False
-        if is_parent(self, source):
-            source_parent = source.parent
-            source_parent_changed = True
-            source.parent = self.parent
-        self.parent = source
-        resp = self.switch(value)
-        self.parent = orig_parent
-        if source_parent_changed:
-            source.parent = source_parent
-        return resp
-    
+
     def __repr__(self):
         try:
             return '%s: %s' % (self.func.__name__, self.__class__.__name__)

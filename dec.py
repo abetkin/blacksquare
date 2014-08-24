@@ -5,7 +5,7 @@ Here live decorators and related stuff
 '''
 
 
-from groutines import Groutine, switch
+from groutines import Groutine
 
 class groutine(object): # -> GroutineCallable
     '''
@@ -36,10 +36,10 @@ class loop(groutine):
     
     def __call__(self):
         with self.event.listen(**self.listener_kwargs) as lnr:
-            value = lnr.switch()
+            value = lnr.send() 
             while True:
                 rv = self.function(*value, **value.__dict__)
-                value = lnr.switch(rv)
+                value = lnr.send(rv)
 
 if __name__ == '__main__':
     @groutine.wrapper()

@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import groutines
-from groutines import Groutine, switch
+from groutines import Groutine, Event
 import greenlet
 from discovery import DefaultFinder
 
 
 class Scenario(Groutine):
-    
-    started = False
     
     def __init__(self, scenario, args=(), kwargs={}, groutines=(),
                  discover=True, finder=DefaultFinder()):
@@ -21,23 +19,24 @@ class Scenario(Groutine):
             self._groutines &= set(finder.discover())
     
     def run(self, *args, **kwargs):
-        self.started = True
+#        import ipdb; ipdb.set_trace()
         self.groutines = []
         for func in self._groutines:
             gr = Groutine(func)
             self.groutines.append(gr)
-#            import ipdb; ipdb.set_trace()
             gr.switch()
         #
-        groutines.all_gr = self.groutines
-        print (self.groutines)
+#        groutines.all_gr = self.groutines
+#        print (self.groutines)
         #
+        Event('SCENARIO_STARTED').fire()
         rv = self._scenario(*self.scenario_args, **self.scenario_kwargs)
         for gr in self.groutines:
             gr.throw()
         return rv
 
 from contextlib import contextmanager
+
 
 class InteractiveScenario(Scenario):
     '''
@@ -49,29 +48,26 @@ class InteractiveScenario(Scenario):
     def __init__(self, *args, **kwargs):
         Groutine.__init__(self)
         self.scenario = Scenario(*args, **kwargs)
-        self.scenario.parent = self.parent
-        self.parent = self.scenario
-#        self.g_out = self.parent
+        self.scenario.parent = self
+        self.g_out = greenlet.getcurrent()
     
     def run(self, *args, **kw):
-        
-        @contextmanager
-        def noop():
-            yield
+        if self.event != Event('SCENARIO_STARTED'):
+            with Event('SCENARIO_STARTED').listen():
+                self.scenario.switch()
+        import time
+        print('%s started at %s' % (self.scenario, time.strftime('%x %X')))
     
+        response = None
+        
         while True:
-            if self.event:
-                lnr = self.event.listen(**self.listener_kwargs)
-            else:
-                lnr = noop()
-            with lnr:
-                if not self.scenario.started:
-                    value = self.scenario.switch_as_parent()
-                else:
-                    value = switch(response)
             if self.scenario.dead:
                 return value
-            response = self.scenario.switch(value)
+            if not self.event:
+                return self.scenario.switch()
+            with self.event.listen(**self.listener_kwargs):
+                value = self.scenario.switch(response)
+            response = self.g_out.switch(value)
     
     def reply(self, value):
         self.response = value
@@ -82,7 +78,7 @@ class InteractiveScenario(Scenario):
         
         response = self.response
         self.response = None
-        self.switch(response)
+        return self.switch(response)
 
 IScenario = InteractiveScenario
 
@@ -101,8 +97,9 @@ if __name__ == '__main__':
     cl = Client()
     
     def sce():
-        cl.get('/')
+        return cl.get('/')
     
     isce = IScenario(sce)
-    isce.wait(groutines.Event('RESP')
-    )
+    val = isce.wait(Event('SCENARIO_STARTED'))
+#    val = isce.wait()
+    print val
