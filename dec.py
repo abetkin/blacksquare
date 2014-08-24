@@ -27,8 +27,10 @@ class groutine(object): # -> GroutineCallable
     def __call__(self):
         if not self.event:
             return self.function()
-        value = self.event.wait(**self.listener_kwargs)
-        return self.function(*value, **value.__dict__)
+        with self.event.listen(**self.listener_kwargs) as lnr:
+            value = lnr.send()
+        rv = self.function(*value, **value.__dict__)
+        lnr.send(rv)
 
 
 

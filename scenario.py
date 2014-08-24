@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import groutines
 from groutines import Groutine, Event
 import greenlet
 from discovery import DefaultFinder
+from contextlib import contextmanager
 
 
 class Scenario(Groutine):
@@ -16,26 +16,21 @@ class Scenario(Groutine):
         self.scenario_kwargs = kwargs
         self._groutines = set(groutines)
         if discover:
-            self._groutines &= set(finder.discover())
+            self._groutines |= set(finder.discover())
     
     def run(self, *args, **kwargs):
-#        import ipdb; ipdb.set_trace()
         self.groutines = []
         for func in self._groutines:
             gr = Groutine(func)
             self.groutines.append(gr)
             gr.switch()
-        #
-#        groutines.all_gr = self.groutines
-#        print (self.groutines)
-        #
-        Event('SCENARIO_STARTED').fire()
+
+        import time
+        Event('SCENARIO_STARTED').fire(time.strftime('%x %X'))
         rv = self._scenario(*self.scenario_args, **self.scenario_kwargs)
         for gr in self.groutines:
             gr.throw()
         return rv
-
-from contextlib import contextmanager
 
 
 class InteractiveScenario(Scenario):
@@ -55,9 +50,6 @@ class InteractiveScenario(Scenario):
         if self.event != Event('SCENARIO_STARTED'):
             with Event('SCENARIO_STARTED').listen():
                 self.scenario.switch()
-        import time
-        print('%s started at %s' % (self.scenario, time.strftime('%x %X')))
-    
         response = None
         
         while True:
@@ -86,12 +78,12 @@ IScenario = InteractiveScenario
 if __name__ == '__main__':
     
     import django
-    print (django.get_version())
+#    print (django.get_version())
     import os
     os.environ['DJANGO_SETTINGS_MODULE'] = 'tutorial.settings'
     django.setup()
-    
-    os.chdir('/home/vitalii/projects/groutines/examples/rest-tutorial')
+#    
+#    os.chdir('/home/vitalii/projects/groutines/examples/rest-tutorial')
     
     from django.test import Client
     cl = Client()
@@ -99,7 +91,8 @@ if __name__ == '__main__':
     def sce():
         return cl.get('/')
     
-    isce = IScenario(sce)
-    val = isce.wait(Event('SCENARIO_STARTED'))
-#    val = isce.wait()
+    isce = IScenario(sce, finder=DefaultFinder(base_dir='examples/rest-tutorial'))
+    val, = isce.wait(Event('SCENARIO_STARTED'))
+    print val
+    val = isce.wait()
     print val

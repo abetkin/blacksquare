@@ -45,7 +45,7 @@ class Listener(object):
         self.event.listeners.remove(self)
     
     def __repr__(self):
-        return 'on %(event)s: %(_groutine)s -> %(receiver)' % self.__dict__
+        return 'on %(event)s: %(_groutine)s -> %(receiver)s' % self.__dict__
         
     __str__ = __repr__
 
