@@ -28,8 +28,10 @@ class Scenario(Groutine):
         import time
         Event('SCENARIO_STARTED').fire(time.strftime('%x %X'))
         rv = self._scenario(*self.scenario_args, **self.scenario_kwargs)
+        print ('THROW')
         for gr in self.groutines:
             gr.throw()
+
         return rv
 
 

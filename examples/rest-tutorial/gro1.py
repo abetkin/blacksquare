@@ -1,6 +1,6 @@
 
 from groutines import FCall, Event
-from dec import groutine
+from dec import groutine, loop
 
 @groutine.wrapper()
 #FCall('rest_framework.views.APIView.dispatch',
@@ -22,6 +22,6 @@ def respons(resp):
     print '!'
     print (resp)
     
-@groutine.wrapper(Event('DISPATCH'))
+@loop.wrapper(Event('DISPATCH'))
 def print_view(view, req):
     print (req.__class__, view)

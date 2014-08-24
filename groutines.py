@@ -42,6 +42,7 @@ class Listener(object):
         return self
     
     def __exit__(self, *exc_info):
+        print 'exit %s' % self
         self.event.listeners.remove(self)
     
     def __repr__(self):
@@ -69,6 +70,7 @@ class CallListener(Listener):
         return super(CallListener, self).__enter__()
     
     def __exit__(self, *exc_info):
+        print 'exit %s' % self
         if not self.event.listeners and self.event.callable_wrapper.patched:
             self.event.callable_wrapper.restore()
         super(CallListener, self).__exit__(*exc_info)
@@ -116,11 +118,17 @@ class Event(object):
         for value in values:
             if value is not None: return value
     
+#    @contextmanager
     def listen(self, **kwargs):
         '''
         Create a listener. 
         '''
-        return self.listener_class(self, **kwargs)
+        lnr = self.listener_class(self, **kwargs)
+        return lnr
+#        try:
+#            yield lnr.__enter__()
+#        finally:
+#            lnr.__exit__()
     
     def wait(self, **listener_kwargs):
         '''
