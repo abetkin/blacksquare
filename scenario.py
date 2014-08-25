@@ -95,6 +95,6 @@ if __name__ == '__main__':
     
     isce = IScenario(sce, finder=DefaultFinder(base_dir='examples/rest-tutorial'))
     val, = isce.wait(Event('SCENARIO_STARTED'))
-    print val
+    print (val)
     val = isce.wait()
-    print val
+    print (val)

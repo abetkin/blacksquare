@@ -42,7 +42,6 @@ class Listener(object):
         return self
     
     def __exit__(self, *exc_info):
-        print 'exit %s' % self
         self.event.listeners.remove(self)
     
     def __repr__(self):
@@ -65,15 +64,17 @@ class CallListener(Listener):
         super(CallListener, self).__init__(event, _condition, grinlet) 
     
     def __enter__(self):
+        print ('enter %s' % self)
         if not self.event.callable_wrapper.patched:
             self.event.callable_wrapper.patch()
         return super(CallListener, self).__enter__()
     
     def __exit__(self, *exc_info):
-        print 'exit %s' % self
+        print ('exit %s' % self)
+        super(CallListener, self).__exit__(*exc_info)
         if not self.event.listeners and self.event.callable_wrapper.patched:
             self.event.callable_wrapper.restore()
-        super(CallListener, self).__exit__(*exc_info)
+        
 
 # TODO: __repr__ for classes
 
@@ -180,6 +181,7 @@ class CallableWrapper(object):
         '''
         Replace original with wrapper.
         '''
+        print('patched')
         try:
             assert isinstance(self._target, types.UnboundMethodType)
             assert isinstance(self._target.__self__, type)
@@ -194,31 +196,34 @@ class CallableWrapper(object):
         '''
         Put original callable on it's place back.
         '''
+        print('restore')
         setattr(self._target_parent, self._target_attribute, self._target)
         self.patched = False
         
     
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
-        self.restore() # restoring original, will patch it back
-                       # in the end of this function
-        bound_arg = getattr(wrapped, 'im_self', None) \
-                    or getattr(wrapped, 'im_class', None)
-        enter_info = CallInfo(*args, type='ENTER', callable=wrapped,
-                bound_arg=bound_arg, argnames=self.event._argnames, **kwargs)
-        enter_value = self.event.fire(enter_info)
-        if enter_value is not None:
-            return enter_value if enter_value is not ExplicitNone else None
-
-        rv = wrapped(*args, **kwargs)
-        exit_info = CallInfo(*args, type='EXIT', callable=wrapped,
-                bound_arg=bound_arg, argnames=self.event._argnames, rv=rv, **kwargs)
-        exit_value = self.event.fire(exit_info)
-        rv = exit_value or rv
-        
-        self.patch() # patching it back
-        
-        return rv if rv is not ExplicitNone else None
+#        self.restore() # restoring original, will patch it back
+#                       # in the end of this function
+#        print('restore')
+        try:
+            bound_arg = getattr(wrapped, 'im_self', None) \
+                        or getattr(wrapped, 'im_class', None)
+            enter_info = CallInfo(*args, type='ENTER', callable=wrapped,
+                    bound_arg=bound_arg, argnames=self.event._argnames, **kwargs)
+            enter_value = self.event.fire(enter_info)
+            if enter_value is not None:
+                return enter_value if enter_value is not ExplicitNone else None
+    
+            rv = wrapped(*args, **kwargs)
+            exit_info = CallInfo(*args, type='EXIT', callable=wrapped,
+                    bound_arg=bound_arg, argnames=self.event._argnames, rv=rv, **kwargs)
+            exit_value = self.event.fire(exit_info)
+            rv = exit_value or rv
+            return rv if rv is not ExplicitNone else None
+        finally:1
+#            print('patching it back')
+#            self.patch() # patching it back
 
 
 class FunctionCall(Event):
@@ -292,13 +297,6 @@ class CallInfo(Kwartuple):
             args = (bound_arg,) + args
         return super(CallInfo, cls).__new__(cls, *args, **kwargs)
 
-def is_parent(greenlet1, greenlet2):
-    g = greenlet2.parent
-    while g is not None:
-        if g == greenlet1:
-            return True
-        g = g.parent
-
 class Groutine(greenlet.greenlet):
     
     def __init__(self, *args, **kwargs):
@@ -309,7 +307,7 @@ class Groutine(greenlet.greenlet):
         try:
             return '%s: %s' % (self.func.__name__, self.__class__.__name__)
         except Exception as exc:
-            print exc
+            print (exc)
             return super(Groutine, self).__repr__()
     
     __str__ = __repr__
