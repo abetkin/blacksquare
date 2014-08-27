@@ -162,12 +162,24 @@ class Event(object):
 #    with listen_any(events, **listener_kwargs):
 #        return switch()
 
+
+
 class CallableWrapper(object):
     '''
     Wraps a callable. Calls respective events (``event``) before and after
     the target call. Events sent differ in ``type`` argument:
     'ENTER' and 'EXIT' respectively.
     '''
+    
+
+#    @property
+#    def patched(self):
+#        return self._patched[-1] if self._patched else False
+#
+#    @patched.setter
+#    def patched(self, val):
+#        self._patched.append(val)
+
 
     def __init__(self, event, target_container, target_attr):
         self.event = event
@@ -175,6 +187,7 @@ class CallableWrapper(object):
         self._target_attribute = target_attr
         self._target = getattr(target_container, target_attr)
         self.patched = False
+#        self._patched = []
 
 
     def patch(self):
@@ -207,8 +220,7 @@ class CallableWrapper(object):
 #                       # in the end of this function
 #        print('restore')
         try:
-            bound_arg = getattr(wrapped, 'im_self', None) \
-                        or getattr(wrapped, 'im_class', None)
+            bound_arg = getattr(wrapped, '__self__', None)
             enter_info = CallInfo(*args, type='ENTER', callable=wrapped,
                     bound_arg=bound_arg, argnames=self.event._argnames, **kwargs)
             enter_value = self.event.fire(enter_info)

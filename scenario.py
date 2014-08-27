@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from groutines import Groutine, Event
+from groutines import Groutine, Event, FCall
 import greenlet
 from discovery import DefaultFinder
 from contextlib import contextmanager
@@ -77,24 +77,22 @@ class InteractiveScenario(Scenario):
 IScenario = InteractiveScenario
 
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
     
-    import django
+import django
 #    print (django.get_version())
-    import os
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'tutorial.settings'
-    django.setup()
+import os
+os.environ['DJANGO_SETTINGS_MODULE'] = 'tutorial.settings'
+django.setup()
 #    
 #    os.chdir('/home/vitalii/projects/groutines/examples/rest-tutorial')
-    
-    from django.test import Client
-    cl = Client()
-    
-    def sce():
-        return cl.get('/')
-    
-    isce = IScenario(sce, finder=DefaultFinder(base_dir='examples/rest-tutorial'))
-    val, = isce.wait(Event('SCENARIO_STARTED'))
-    print (val)
-    val = isce.wait()
-    print (val)
+
+from django.test import Client
+cl = Client()
+
+def sce():
+    return cl.get('/snippets/')
+
+isce = IScenario(sce, finder=DefaultFinder(base_dir='examples/rest-tutorial'))
+
+e = isce.wait(FCall('rest_framework.views.APIView.dispatch'), typ='ENTER')
