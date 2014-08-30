@@ -52,31 +52,27 @@ class Listener(object):
 
 class CallListener(Listener):
 
-    def __init__(self, event, typ='EXIT', condition=None, grinlet=None):
-        
-        def _condition(value):
-            if value.type != typ:
-                return
-            if condition and not condition(value):
-                return
-            return True
-
-        super(CallListener, self).__init__(event, _condition, grinlet) 
+    #def __init__(self, event, typ='EXIT', condition=None, grinlet=None):
+    #    
+    #    def _condition(value):
+    #        if value.type != typ:
+    #            return
+    #        if condition and not condition(value):
+    #            return
+    #        return True
+    #
+    #    super(CallListener, self).__init__(event, _condition, grinlet) 
     
     def __enter__(self):
-        print ('enter %s' % self)
         if not self.event.callable_wrapper.patched:
             self.event.callable_wrapper.patch()
         return super(CallListener, self).__enter__()
     
     def __exit__(self, *exc_info):
-        print ('exit %s' % self)
         super(CallListener, self).__exit__(*exc_info)
         if not self.event.listeners and self.event.callable_wrapper.patched:
             self.event.callable_wrapper.restore()
         
-
-# TODO: __repr__ for classes
 
 class Event(object):
     '''
@@ -98,7 +94,9 @@ class Event(object):
         self.listeners = set()
         Event.instances[key] = self
     
-    def fire(self, *args, **kwargs):
+    def fire(self, odict):
+        '''
+        '''
         if len(args) == 1 and isinstance(args[0], Kwartuple):
             value = args[0]
         else:
@@ -119,17 +117,11 @@ class Event(object):
         for value in values:
             if value is not None: return value
     
-#    @contextmanager
     def listen(self, **kwargs):
         '''
         Create a listener. 
         '''
-        lnr = self.listener_class(self, **kwargs)
-        return lnr
-#        try:
-#            yield lnr.__enter__()
-#        finally:
-#            lnr.__exit__()
+        return self.listener_class(self, **kwargs)
     
     def wait(self, **listener_kwargs):
         '''
@@ -163,6 +155,24 @@ class Event(object):
 #        return switch()
 
 
+class _EventResult(object):
+    '''
+    Utility class that allows to write
+    
+        e = Event('SOME_EVENT')
+        e(a=1)(b=2).fire()
+    
+    '''
+    def __init__(self, event):
+        self.event = event
+        self._odict = collections.OrderedDict()
+    
+    def fire(self):
+        return self.event.fire(self._odict)
+    
+    def __call__(self, **kw):
+        self._odict.update(kw)
+
 
 class CallableWrapper(object):
     '''
@@ -170,16 +180,6 @@ class CallableWrapper(object):
     the target call. Events sent differ in ``type`` argument:
     'ENTER' and 'EXIT' respectively.
     '''
-    
-
-#    @property
-#    def patched(self):
-#        return self._patched[-1] if self._patched else False
-#
-#    @patched.setter
-#    def patched(self, val):
-#        self._patched.append(val)
-
 
     def __init__(self, event, target_container, target_attr):
         self.event = event
@@ -187,14 +187,12 @@ class CallableWrapper(object):
         self._target_attribute = target_attr
         self._target = getattr(target_container, target_attr)
         self.patched = False
-#        self._patched = []
 
 
     def patch(self):
         '''
         Replace original with wrapper.
         '''
-        print('patched')
         try:
             assert isinstance(self._target, types.UnboundMethodType)
             assert isinstance(self._target.__self__, type)
@@ -209,16 +207,12 @@ class CallableWrapper(object):
         '''
         Put original callable on it's place back.
         '''
-        print('restore')
         setattr(self._target_parent, self._target_attribute, self._target)
         self.patched = False
         
     
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
-#        self.restore() # restoring original, will patch it back
-#                       # in the end of this function
-#        print('restore')
         try:
             bound_arg = getattr(wrapped, '__self__', None)
             enter_info = CallInfo(*args, type='ENTER', callable=wrapped,
@@ -233,9 +227,9 @@ class CallableWrapper(object):
             exit_value = self.event.fire(exit_info)
             rv = exit_value or rv
             return rv if rv is not ExplicitNone else None
-        finally:1
-#            print('patching it back')
-#            self.patch() # patching it back
+        finally:
+            'FIXME'
+
 
 
 class FunctionCall(Event):
@@ -280,6 +274,20 @@ class FunctionCall(Event):
     
     __str__ = __repr__
 
+
+class BeforeFunctionCall(FunctionCall):
+    pass
+
+class AfterFunctionCall(FunctionCall):
+    pass
+
+def make_event(key):
+    '''
+    Event factory function
+    '''
+    1
+
+"""
 class Kwartuple(tuple):
     '''
     Tuple which initializes it's __dict__
@@ -290,6 +298,8 @@ class Kwartuple(tuple):
         obj = super(Kwartuple, cls).__new__(cls, args)
         obj.__dict__.update(kwargs)
         return obj
+
+
 
 
 class CallInfo(Kwartuple):
@@ -308,6 +318,8 @@ class CallInfo(Kwartuple):
         if bound_arg:
             args = (bound_arg,) + args
         return super(CallInfo, cls).__new__(cls, *args, **kwargs)
+
+"""
 
 class Groutine(greenlet.greenlet):
     

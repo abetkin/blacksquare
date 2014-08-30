@@ -4,6 +4,7 @@ import os
 from groutines import Groutine
 import re
 from util import object_from_name
+from scenario import InteractiveScenario
 from discovery import DefaultFinder
 import django
 
@@ -21,6 +22,13 @@ class GMiddleware(object):
             gr = Groutine(func)
             self.groutines.append(gr)
             gr.switch()
+        
+        s = InteractiveScenario(view_func, (request,))
+        import IPython
+        IPython.embed()
+        # TODO: kill shell when scenario ends
+        #       use response from scenario
+        return django.http.HttpResponse()
     
     def process_response(self, request, response):
         for gr in self.groutines:

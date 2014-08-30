@@ -28,7 +28,6 @@ class Scenario(Groutine):
         import time
         Event('SCENARIO_STARTED').fire(time.strftime('%x %X'))
         rv = self._scenario(*self.scenario_args, **self.scenario_kwargs)
-        print ('THROW')
         for gr in self.groutines:
             gr.throw()
 
@@ -95,4 +94,4 @@ def sce():
 
 isce = IScenario(sce, finder=DefaultFinder(base_dir='examples/rest-tutorial'))
 
-e = isce.wait(FCall('rest_framework.views.APIView.dispatch'), typ='ENTER')
+#e = isce.wait(FCall('rest_framework.views.APIView.dispatch'), typ='ENTER')
