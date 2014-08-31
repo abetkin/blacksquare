@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from groutines import Groutine, Event, make_event
+from . import Groutine, Event, make_event, DefaultFinder
 import greenlet
-from discovery import DefaultFinder
-from contextlib import contextmanager
 
 
 class Scenario(Groutine):

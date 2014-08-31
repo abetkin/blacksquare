@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from util import object_from_name, is_classmethod
+from .util import object_from_name, is_classmethod
 
 import greenlet
 import collections
@@ -234,7 +234,6 @@ class CallableWrapper(object):
         '''
         Replace original with wrapper.
         '''
-        #if self
         if is_classmethod(self._target):
             target = classmethod(self._target.__func__)
         else:
@@ -253,6 +252,8 @@ class CallableWrapper(object):
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
         try:
+            #XXX restore ?
+            
             event_dict = EventDict.from_function_call(wrapped, args, kwargs)
             if isinstance(self.event, BeforeFunctionCall):
                 enter_value = self.event.fire(event_dict)
@@ -358,5 +359,3 @@ def wait(event, *args, **kw):
     if not isinstance(event, Event):
         event = make_event(event)
     return event.wait(*args, **kw)
-
-Attr = collections.namedtuple('Attr', ['parent', 'attribute'])

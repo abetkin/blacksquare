@@ -5,7 +5,7 @@ Here live decorators and related stuff
 '''
 
 
-from groutines import Groutine, make_event, Event
+from . import Groutine, make_event, Event
 
 class GroutineFunction(object):
     '''

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from groutines import ForceReturn, Event, wait
-from dec import groutine, loop
+from groutines import ForceReturn, Event, wait, groutine, loop, InteractiveScenario
 
 class SomeClass(object):
     
@@ -40,8 +39,6 @@ def big_value(value):
 
 if __name__ == '__main__':
     
-    from scenario import IScenario
-    
-    sc = IScenario(scenario, groutines=(a_greenlet, big_value), discover=0
+    sc = InteractiveScenario(scenario, groutines=(a_greenlet, big_value), discover=0
             )
     sc.wait()

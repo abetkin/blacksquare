@@ -1,12 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os
-from groutines import Groutine
-import re
-from util import object_from_name
-from scenario import InteractiveScenario
-from discovery import DefaultFinder
-import django
+from . import Groutine, InteractiveScenario, DefaultFinder
 
 class GMiddleware(object):
 
@@ -28,6 +22,7 @@ class GMiddleware(object):
         IPython.embed()
         # TODO: kill shell when scenario ends
         #       use response from scenario
+        import django
         return django.http.HttpResponse()
     
     def process_response(self, request, response):

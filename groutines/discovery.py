@@ -2,8 +2,8 @@
 
 import os
 import re
-from util import object_from_name
-from dec import GroutineFunction
+from .util import object_from_name
+from .dec import GroutineFunction
 
 class DefaultFinder(object):
     

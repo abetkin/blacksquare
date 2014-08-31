@@ -1,6 +1,5 @@
 
-from groutines import Event, wait
-from dec import groutine, loop
+from groutines import Event, wait, groutine, loop
 import collections
 
 @groutine()
