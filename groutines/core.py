@@ -297,12 +297,11 @@ class FunctionCall(Event):
         # Add to events registry in the end
         super(FunctionCall, self).__init__(key)
 
-    def process_responses(self, values_iter):
-        values = []
-        for value in values_iter:
+
+    def process_responses(self, values):
+        for value in values:
             if isinstance(value, ForceReturn):
                 return value.value
-            values.append(value)
         return super(FunctionCall, self).process_responses(values)
 
     def __repr__(self):
