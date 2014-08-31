@@ -3,7 +3,7 @@
 import os
 import re
 from util import object_from_name
-from dec import groutine
+from dec import GroutineFunction
 
 class DefaultFinder(object):
     
@@ -34,7 +34,7 @@ class DefaultFinder(object):
                     self.modules.append(mod)
         for mod in self.modules:
             for attr in dir(mod):
-                if isinstance(getattr(mod, attr), groutine):
+                if isinstance(getattr(mod, attr), GroutineFunction):
                     groutines.add(getattr(mod, attr))
         return groutines
 

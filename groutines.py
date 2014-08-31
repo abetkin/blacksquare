@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from util import object_from_name
+from util import object_from_name, is_classmethod
 
 import greenlet
-import types
-import itertools
-from contextlib import contextmanager
 import collections
 import wrapt
-
+import inspect
 
 class ExplicitNone(object): pass
 
@@ -52,17 +49,6 @@ class Listener(object):
 
 class CallListener(Listener):
 
-    #def __init__(self, event, typ='EXIT', condition=None, grinlet=None):
-    #    
-    #    def _condition(value):
-    #        if value.type != typ:
-    #            return
-    #        if condition and not condition(value):
-    #            return
-    #        return True
-    #
-    #    super(CallListener, self).__init__(event, _condition, grinlet) 
-    
     def __enter__(self):
         if not self.event.callable_wrapper.patched:
             self.event.callable_wrapper.patch()
@@ -94,14 +80,19 @@ class Event(object):
         self.listeners = set()
         Event.instances[key] = self
     
-    def fire(self, odict):
+    def fire(self, *args, **kwds):
         '''
+        Event is fired with a `value` which can be any object.
         '''
-        if len(args) == 1 and isinstance(args[0], Kwartuple):
-            value = args[0]
+        if kwds:
+            assert not args, "Can either specify value to fire or keywords, not both"
+            value = kwds
         else:
-            value = Kwartuple(*args, **kwargs)
-            
+            try:
+                value = args[0]
+            except:
+                raise AssertionError("Should specify the value to fire")
+        
         responses = []
         for listener in tuple(self.listeners):
             listener.receiver = greenlet.getcurrent()
@@ -136,7 +127,9 @@ class Event(object):
         return 'Event %s' % self.key
     
     __str__ = __repr__
-
+    
+    def __call__(self, **kw):
+        return _FiringHelper(self)(**kw)
 
 # TODO rewrite
 #@contextmanager
@@ -155,7 +148,53 @@ class Event(object):
 #        return switch()
 
 
-class _EventResult(object):
+class EventDict(object):
+    '''
+    OrderedDict, customized for needs of being the value event fires.
+    For example, returns values, not keys, when is iterated over.
+    '''
+    
+    ## no-op wrappers
+    
+    def __init__(self, *args, **kw):
+        self._odict = collections.OrderedDict(*args, **kw)
+
+    def __getattr__(self, name):
+        return getattr(self._odict, name)
+
+    def __getitem__(self, key):
+        return self._odict[key]
+
+    def __setitem__(self, key, item):
+        self._odict[key] = item
+    
+    def __repr__(self):
+        return repr(self._odict)
+    
+    ##
+    
+    def __iter__(self):
+        return iter(self._odict.values())
+    
+    @classmethod
+    def from_function_call(cls, callabl, args, kwargs):
+        if getattr(callabl, '__self__', None):
+            sig = inspect.signature(callabl.__func__)
+            bound_args = sig.bind(callabl.__self__, *args, **kwargs).arguments
+        else:
+            sig = inspect.signature(callabl)
+            bound_args = sig.bind(*args, **kwargs).arguments
+        
+        instance = cls()
+        for name, parameter in sig.parameters.items():
+            if name in bound_args:
+                instance[name] = bound_args[name]
+            elif parameter.default is not inspect._empty:
+                instance[name] = parameter.default
+        return instance
+
+
+class _FiringHelper(object):
     '''
     Utility class that allows to write
     
@@ -165,13 +204,14 @@ class _EventResult(object):
     '''
     def __init__(self, event):
         self.event = event
-        self._odict = collections.OrderedDict()
+        self._value = EventDict()
     
     def fire(self):
-        return self.event.fire(self._odict)
+        return self.event.fire(self._value)
     
     def __call__(self, **kw):
-        self._odict.update(kw)
+        self._value.update(kw)
+        return self
 
 
 class CallableWrapper(object):
@@ -189,16 +229,15 @@ class CallableWrapper(object):
         self.patched = False
 
 
+
     def patch(self):
         '''
         Replace original with wrapper.
         '''
-        try:
-            assert isinstance(self._target, types.UnboundMethodType)
-            assert isinstance(self._target.__self__, type)
-            # if it's a classmethod
+        #if self
+        if is_classmethod(self._target):
             target = classmethod(self._target.__func__)
-        except:
+        else:
             target = self._target
         setattr(self._target_parent, self._target_attribute, self(target))
         self.patched = True
@@ -214,22 +253,24 @@ class CallableWrapper(object):
     @wrapt.function_wrapper
     def __call__(self, wrapped, instance, args, kwargs):
         try:
-            bound_arg = getattr(wrapped, '__self__', None)
-            enter_info = CallInfo(*args, type='ENTER', callable=wrapped,
-                    bound_arg=bound_arg, argnames=self.event._argnames, **kwargs)
-            enter_value = self.event.fire(enter_info)
-            if enter_value is not None:
-                return enter_value if enter_value is not ExplicitNone else None
-    
-            rv = wrapped(*args, **kwargs)
-            exit_info = CallInfo(*args, type='EXIT', callable=wrapped,
-                    bound_arg=bound_arg, argnames=self.event._argnames, rv=rv, **kwargs)
-            exit_value = self.event.fire(exit_info)
-            rv = exit_value or rv
-            return rv if rv is not ExplicitNone else None
-        finally:
-            'FIXME'
+            event_dict = EventDict.from_function_call(wrapped, args, kwargs)
+            if isinstance(self.event, BeforeFunctionCall):
+                enter_value = self.event.fire(event_dict)
+                if enter_value is not None:
+                    return enter_value if enter_value is not ExplicitNone else None
 
+            return_value = wrapped(*args, **kwargs)
+
+            if isinstance(self.event, AfterFunctionCall):
+                event_dict['return_value'] = return_value
+                exit_value = self.event.fire(event_dict)
+                if exit_value is ExplicitNone:
+                    return None
+                if exit_value is not None:
+                    return exit_value
+            return return_value
+        finally:
+            'TODO'
 
 
 class FunctionCall(Event):
@@ -237,27 +278,21 @@ class FunctionCall(Event):
     Is fired when target callable is called (event's name is callable's
     import path).
     
-    ``callable_wrapper`` is responsible for the respective patching.
+    `callable_wrapper` is responsible for the respective patching.
     '''
 
     listener_class = CallListener
 
-    def __new__(cls, key, argnames=None):
-        return super(FunctionCall, cls).__new__(cls, key)
-
-    def __init__(self, key, argnames=None):
+    def __init__(self, key):
         if key in Event.instances:
             return
         if isinstance(key, str):
             target_container, target_attr, _ = object_from_name(key) 
         else:
             assert len(key) == 2
-            # TODO: probably will be able to figure that out
-            #       just from target callable, and get rid of tuple.
             target_container, target_attr = key
         self.callable_wrapper = CallableWrapper(self, target_container,
                                                 target_attr)
-        self._argnames = argnames
         # Add to events registry in the end
         super(FunctionCall, self).__init__(key)
 
@@ -281,45 +316,6 @@ class BeforeFunctionCall(FunctionCall):
 class AfterFunctionCall(FunctionCall):
     pass
 
-def make_event(key):
-    '''
-    Event factory function
-    '''
-    1
-
-"""
-class Kwartuple(tuple):
-    '''
-    Tuple which initializes it's __dict__
-    with keyword arguments passed to constructor.
-    '''
-    
-    def __new__(cls, *args, **kwargs):
-        obj = super(Kwartuple, cls).__new__(cls, args)
-        obj.__dict__.update(kwargs)
-        return obj
-
-
-
-
-class CallInfo(Kwartuple):
-
-    # TODO: handle default args
-
-    def __new__(cls, *args, **kwargs):
-        argnames = kwargs.pop('argnames', None)
-        bound_arg = kwargs.pop('bound_arg')
-        if argnames:
-            delta = len(argnames) - len(args)
-            if delta > 0:
-                args += tuple(kwargs.pop(argname)
-                              for argname in argnames[-delta:])
-                # TODO: KeyError: error msg
-        if bound_arg:
-            args = (bound_arg,) + args
-        return super(CallInfo, cls).__new__(cls, *args, **kwargs)
-
-"""
 
 class Groutine(greenlet.greenlet):
     
@@ -336,6 +332,31 @@ class Groutine(greenlet.greenlet):
     
     __str__ = __repr__
 
+
 ## Shortcuts ##
 
-FCall = FunctionCall
+
+def make_event(key):
+    '''
+    Utility function that is a shortcut for creating events.
+    Tries to guess the event class and instantiates it.
+    '''
+    if isinstance(key, (tuple, list)) and len(key) == 2:
+        return AfterFunctionCall(key)
+    
+    if isinstance(key, str) and '.' in key:
+        if key.startswith('-'):
+            return BeforeFunctionCall(key[1:])
+        return AfterFunctionCall(key)
+    
+    return Event(key)
+
+def wait(event, *args, **kw):
+    '''
+    Shortcut function.
+    '''
+    if not isinstance(event, Event):
+        event = make_event(event)
+    return event.wait(*args, **kw)
+
+Attr = collections.namedtuple('Attr', ['parent', 'attribute'])

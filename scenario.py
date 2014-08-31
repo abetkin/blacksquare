@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from groutines import Groutine, Event, FCall
+from groutines import Groutine, Event, make_event
 import greenlet
 from discovery import DefaultFinder
 from contextlib import contextmanager
@@ -66,6 +66,8 @@ class InteractiveScenario(Scenario):
         self.response = value
     
     def wait(self, event=None, **listener_kwargs):
+        if event and not isinstance(event, Event):
+            event = make_event(event)
         self.event = event
         self.listener_kwargs = listener_kwargs
         
@@ -76,22 +78,22 @@ class InteractiveScenario(Scenario):
 IScenario = InteractiveScenario
 
 
-#if __name__ == '__main__':
+if __name__ == '__main__':
     
-import django
-#    print (django.get_version())
-import os
-os.environ['DJANGO_SETTINGS_MODULE'] = 'tutorial.settings'
-django.setup()
-#    
-#    os.chdir('/home/vitalii/projects/groutines/examples/rest-tutorial')
-
-from django.test import Client
-cl = Client()
-
-def sce():
-    return cl.get('/snippets/')
-
-isce = IScenario(sce, finder=DefaultFinder(base_dir='examples/rest-tutorial'))
-
-#e = isce.wait(FCall('rest_framework.views.APIView.dispatch'), typ='ENTER')
+    import django
+    #    print (django.get_version())
+    import os
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'tutorial.settings'
+    django.setup()
+    #    
+    #    os.chdir('/home/vitalii/projects/groutines/examples/rest-tutorial')
+    
+    from django.test import Client
+    cl = Client()
+    
+    def sce():
+        return cl.get('/snippets/')
+    
+    isce = IScenario(sce, finder=DefaultFinder(base_dir='examples/rest-tutorial'))
+    
+    #e = isce.wait(FCall('rest_framework.views.APIView.dispatch'), typ='ENTER')

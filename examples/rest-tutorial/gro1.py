@@ -1,8 +1,9 @@
 
-from groutines import FCall, Event
+from groutines import Event, wait
 from dec import groutine, loop
+import collections
 
-@groutine.wrapper()
+@groutine()
 #FCall('rest_framework.views.APIView.dispatch',
 #                        argnames=['request']
 #                        )
@@ -10,18 +11,19 @@ from dec import groutine, loop
 #                  )
 def dispatch(#view, req, **kw
              ):
-    value = FCall('rest_framework.views.APIView.dispatch').wait()
-    view, req = value
+    value = wait('rest_framework.views.APIView.dispatch')
+    print( value )
+    view, req, rv= value
     
-    Event('DISPATCH').fire(view, req)
-    Event('RESP').fire(value.rv.data)
+    Event('DISPATCH')(view=view, request=req).fire()
+    Event('RESP').fire(collections.OrderedDict(resp=rv.data))
     
 
-@groutine.wrapper(Event('RESP'))
+@groutine('RESP')
 def respons(resp):
-    print '!'
     print (resp)
     
-@loop.wrapper(Event('DISPATCH'))
-def print_view(view, req):
-    print (req.__class__, view)
+@loop('DISPATCH')
+def print_view(view, request):
+    print (request.__class__, view)
+

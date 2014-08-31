@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from groutines import FCall, switch, ForceReturn, Event
+from groutines import ForceReturn, Event, wait
 from dec import groutine, loop
 
 class SomeClass(object):
@@ -21,21 +21,20 @@ class SomeClass(object):
 
 def scenario():
     o = SomeClass()
-    print SomeClass.middle(default=6)
+    print( SomeClass.middle(default=6) )
 
 
-@groutine.wrapper()
+@groutine()
 def a_greenlet():
-    print FCall((SomeClass, 'middle'),
-                       argnames=['default']
-                       ).wait()
+    wait((SomeClass, 'middle'))
     for i in range(5):
         e = Event('OLD_VALUE')
-        print e.fire(value=i)
+        print( e.fire(value=i)
+             )
     return ForceReturn(9)
     
 
-@loop.wrapper(Event('OLD_VALUE'))
+@loop('OLD_VALUE')
 def big_value(value):
     return (value + 1)
 
