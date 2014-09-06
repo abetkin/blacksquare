@@ -25,7 +25,7 @@ def scenario():
 
 @groutine()
 def a_greenlet():
-    wait((SomeClass, 'middle'))
+    wait(SomeClass, 'middle')
     for i in range(5):
         e = Event('OLD_VALUE')
         print( e.fire(value=i)

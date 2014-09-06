@@ -11,19 +11,21 @@ class GMiddleware(object):
         
         
     def process_view(self, request, view_func, view_args, view_kwargs):
-        self.groutines = []
-        for func in self._groutines:
-            gr = Groutine(func)
-            self.groutines.append(gr)
-            gr.switch()
-        
-        s = InteractiveScenario(view_func, (request,))
-        import IPython
-        IPython.embed()
-        # TODO: kill shell when scenario ends
-        #       use response from scenario
-        import django
-        return django.http.HttpResponse()
+        import ipdb
+        with ipdb.launch_ipdb_on_exception():
+            self.groutines = []
+            for func in self._groutines:
+                gr = Groutine(func)
+                self.groutines.append(gr)
+                gr.switch()
+
+            s = InteractiveScenario(view_func, (request,))
+            import IPython
+            IPython.embed()
+            # TODO: kill shell when scenario ends
+            #       use response from scenario
+            import django
+            return django.http.HttpResponse()
     
     def process_response(self, request, response):
         for gr in self.groutines:

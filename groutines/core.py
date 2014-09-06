@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from .util import object_from_name, is_classmethod
+from .util import import_module, is_classmethod
 
 import greenlet
 import collections
 import wrapt
 import inspect
+import six
 
 class ExplicitNone(object): pass
 
@@ -74,6 +75,9 @@ class Event(object):
         return super(Event, cls).__new__(cls)
 
     def __init__(self, key):
+        '''
+        `key` should be a string.
+        '''
         if key in Event.instances:
             return
         self.key = key
@@ -287,14 +291,18 @@ class FunctionCall(Event):
     def __init__(self, key):
         if key in Event.instances:
             return
-        if isinstance(key, str):
-            target_container, target_attr, _ = object_from_name(key) 
+        if isinstance(key, six.string_types):
+            parent, path= import_module(key)
         else:
-            assert len(key) == 2
-            target_container, target_attr = key
-        self.callable_wrapper = CallableWrapper(self, target_container,
-                                                target_attr)
-        # Add to events registry in the end
+            # key is 2-element tuple
+            parent, path = key
+
+        parts = path.split('.')
+        for part in parts[:-1]:
+            parent = getattr(parent, part)
+        self.callable_wrapper = CallableWrapper(self, parent, parts[-1])
+
+        # Finally add to events registry
         super(FunctionCall, self).__init__(key)
 
 
@@ -336,25 +344,33 @@ class Groutine(greenlet.greenlet):
 ## Shortcuts ##
 
 
-def make_event(key):
+def make_event(key, *args):
     '''
-    Utility function that is a shortcut for creating events.
+    Shortcut for creating events.
     Tries to guess the event class and instantiates it.
     '''
-    if isinstance(key, (tuple, list)) and len(key) == 2:
+    if not isinstance(key, six.string_types):
+        # key is actually a tuple (key, args[0])
+        assert args
+        if args[0].startswith('-'):
+            key = (key, args[0][1:])
+            return BeforeFunctionCall(key)
+        key = (key, args[0])
         return AfterFunctionCall(key)
-    
-    if isinstance(key, str) and '.' in key:
+
+    # key is a string
+    if '.' in key:
         if key.startswith('-'):
             return BeforeFunctionCall(key[1:])
         return AfterFunctionCall(key)
     
     return Event(key)
 
+
 def wait(event, *args, **kw):
     '''
     Shortcut function.
     '''
     if not isinstance(event, Event):
-        event = make_event(event)
-    return event.wait(*args, **kw)
+        event = make_event(event, *args)
+    return event.wait(**kw)

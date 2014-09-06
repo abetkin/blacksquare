@@ -2,7 +2,7 @@
 
 import os
 import re
-from .util import object_from_name
+from .util import import_module
 from .dec import GroutineFunction
 
 class DefaultFinder(object):
@@ -30,7 +30,8 @@ class DefaultFinder(object):
                         parts = []
                     # probably exists a more elegant solution for import
                     obj_path = '.'.join(parts + [fname[:-3]])
-                    _, _, mod = object_from_name(obj_path)
+                    mod, rest = import_module(obj_path)
+                    assert not rest
                     self.modules.append(mod)
         for mod in self.modules:
             for attr in dir(mod):

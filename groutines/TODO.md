@@ -1,3 +1,9 @@
 
 
-- get rid of groutine.wrapper
+it.uses_groutine('')
+
+'relative.name'
+
+'.' defines if it's FunctionCall,
+
+how to group groutines
