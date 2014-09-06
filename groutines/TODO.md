@@ -2,8 +2,6 @@
 
 it.uses_groutine('')
 
-'relative.name'
+discoverer, specify list
 
-'.' defines if it's FunctionCall,
-
-how to group groutines
+# bug: scenario is not dead (! cannot switch from different thread)

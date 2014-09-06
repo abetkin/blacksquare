@@ -75,23 +75,3 @@ class InteractiveScenario(Scenario):
 
 IScenario = InteractiveScenario
 
-
-if __name__ == '__main__':
-    
-    import django
-    #    print (django.get_version())
-    import os
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'tutorial.settings'
-    django.setup()
-    #    
-    #    os.chdir('/home/vitalii/projects/groutines/examples/rest-tutorial')
-    
-    from django.test import Client
-    cl = Client()
-    
-    def sce():
-        return cl.get('/snippets/')
-    
-    isce = IScenario(sce, finder=DefaultFinder(base_dir='examples/rest-tutorial'))
-    
-    #e = isce.wait(FCall('rest_framework.views.APIView.dispatch'), typ='ENTER')
