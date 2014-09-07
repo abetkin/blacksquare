@@ -170,9 +170,6 @@ class EventDict(object):
     def __init__(self, *args, **kw):
         self._odict = collections.OrderedDict(*args, **kw)
 
-    def __getattr__(self, name):
-        return getattr(self._odict, name)
-
     def __getitem__(self, key):
         return self._odict[key]
 
@@ -180,6 +177,14 @@ class EventDict(object):
         self._odict[key] = item
 
     ##
+
+    def __getattr__(self, name):
+        try:
+            return getattr(self._odict, name)
+        except AttributeError:
+            if name in self._odict:
+                return self._odict[name]
+            raise
     
     def __repr__(self):
         lines = []

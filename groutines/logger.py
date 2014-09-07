@@ -29,6 +29,8 @@ class EventsList(list):
     def __str__(self):
         return (2 * os.linesep).join(str(item) for item in self)
 
+    __repr__ = __str__
+
 events = EventsList()
 
 
