@@ -7,6 +7,9 @@ import collections
 import wrapt
 import inspect
 import six
+import os
+
+from . import logger
 
 class ExplicitNone(object): pass
 
@@ -41,7 +44,7 @@ class Listener(object):
     
     def __exit__(self, *exc_info):
         self.event.listeners.remove(self)
-    
+
     def __repr__(self):
         return 'on %(event)s: %(_groutine)s -> %(receiver)s' % self.__dict__
         
@@ -90,16 +93,19 @@ class Event(object):
         '''
         if kwds:
             assert not args, "Can either specify value to fire or keywords, not both"
-            value = kwds
+            value = EventDict(kwds)
         else:
             try:
                 value = args[0]
             except:
                 raise AssertionError("Should specify the value to fire")
         
+        fired_from = greenlet.getcurrent()
+        logger.log(self, value, fired_from)
+
         responses = []
         for listener in tuple(self.listeners):
-            listener.receiver = greenlet.getcurrent()
+            listener.receiver = fired_from
             resp = listener.switch(value)
             responses.append(resp)
         return self.process_responses(responses)
@@ -129,8 +135,9 @@ class Event(object):
     
     def __repr__(self):
         return 'Event %s' % self.key
-    
-    __str__ = __repr__
+
+    def __str__(self):
+        return self.key
     
     def __call__(self, **kw):
         return _FiringHelper(self)(**kw)
@@ -171,11 +178,18 @@ class EventDict(object):
 
     def __setitem__(self, key, item):
         self._odict[key] = item
+
+    ##
     
     def __repr__(self):
-        return repr(self._odict)
+        lines = []
+        for key, value in self._odict.items():
+            if str(value).count('\n') > 10:
+                value = '%s instance' % value.__class__
+            lines.append( '%s = %s' % (key, value))
+        return os.linesep.join(lines)
     
-    ##
+    __str__ = __repr__
     
     def __iter__(self):
         return iter(self._odict.values())
@@ -313,9 +327,18 @@ class FunctionCall(Event):
         return super(FunctionCall, self).process_responses(values)
 
     def __repr__(self):
-        return 'FCall %s' % self.callable_wrapper._target.__name__
-    
-    __str__ = __repr__
+        return 'FunctionCall %s' % self.key
+
+    def __str__(self):
+        if isinstance(self.key, six.string_types):
+            return self.key
+        # key is tuple
+        parent, path = self.key
+        try:
+            parent_str = parent.__name__
+        except AttributeError:
+            parent_str = '%s instance' % parent.__class__.__name__
+        return '.'.join((parent_str, path))
 
 
 class BeforeFunctionCall(FunctionCall):

@@ -100,7 +100,7 @@ MIDDLEWARE_CLASSES = (
     # Uncomment the next line for simple clickjacking protection:
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    'groutines.middleware.GMiddleware',
+    'groutines.ipython.middleware.GMiddleware',
 )
 
 ROOT_URLCONF = 'tutorial.urls'

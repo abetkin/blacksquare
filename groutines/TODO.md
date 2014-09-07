@@ -1,7 +1,8 @@
 
+maybe make Groutine incapsulate greenlet, not inherit
 
-it.uses_groutine('')
+##
 
-discoverer, specify list
+smart logger
+------------
 
-# bug: scenario is not dead (! cannot switch from different thread)

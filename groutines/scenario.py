@@ -25,11 +25,12 @@ class Scenario(Groutine):
 
         import time
         Event('SCENARIO_STARTED').fire(time.strftime('%x %X'))
-        rv = self._scenario(*self.scenario_args, **self.scenario_kwargs)
+        self.result = self._scenario(*self.scenario_args, **self.scenario_kwargs)
+
         for gr in self.groutines:
             gr.throw()
 
-        return rv
+        return self.result
 
 
 class InteractiveScenario(Scenario):
@@ -72,6 +73,11 @@ class InteractiveScenario(Scenario):
         response = self.response
         self.response = None
         return self.switch(response)
+
+    @property
+    def result(self):
+        # may raise AttributeError if result is not ready
+        return self.scenario.result
 
 IScenario = InteractiveScenario
 
