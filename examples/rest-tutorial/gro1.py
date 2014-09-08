@@ -15,11 +15,13 @@ def dispatch(#view, req, **kw
     view, req, rv= value
     
     Event('DISPATCH')(view=view, request=req).fire()
-    Event('RESP').fire(collections.OrderedDict(resp=rv.data))
+    Event('RESP').fire(resp=rv.data)
     
 
 @groutine('RESP')
 def respons(resp):
+    import threading
+    print ('gr thread is', threading.currentThread)
     print (resp)
     
 @loop('DISPATCH')

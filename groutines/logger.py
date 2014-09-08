@@ -29,13 +29,18 @@ class EventsList(list):
     def __str__(self):
         return (2 * os.linesep).join(str(item) for item in self)
 
+    __repr__ = __str__
+
 events = EventsList()
 
 
 def clear():
     global events
-    events = []
+    while events:
+        events.pop()
 
 def log(event, value, where):
     info = EventInfo(event, value, where)
     events.append(info)
+
+#TODO: wait event by number, take list from history
