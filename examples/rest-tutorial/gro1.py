@@ -28,3 +28,7 @@ def respons(resp):
 def print_view(view, request):
     print (request.__class__, view)
 
+
+#@groutine('DISPATCH')
+#def browsable_api_off(view, request):
+#    1

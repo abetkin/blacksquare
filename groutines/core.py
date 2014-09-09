@@ -8,6 +8,7 @@ import wrapt
 import inspect
 import six
 import os
+from contextlib import contextmanager
 
 from . import logger
 
@@ -178,6 +179,10 @@ class EventDict(object):
 
     ##
 
+    def __dir__(self):
+        dir_ = super(EventDict, self).__dir__()
+        return dir_ + list(self._odict.keys())
+
     def __getattr__(self, name):
         try:
             return getattr(self._odict, name)
@@ -324,7 +329,6 @@ class FunctionCall(Event):
         # Finally add to events registry
         super(FunctionCall, self).__init__(key)
 
-
     def process_responses(self, values):
         for value in values:
             if isinstance(value, ForceReturn):
@@ -352,6 +356,10 @@ class BeforeFunctionCall(FunctionCall):
 class AfterFunctionCall(FunctionCall):
     pass
 
+
+@contextmanager
+def while_in(function):
+    'TODO'
 
 class Groutine(greenlet.greenlet):
     

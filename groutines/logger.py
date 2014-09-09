@@ -14,11 +14,17 @@ class EventInfo(object):
     def __init__(self, event, value, where):
         self.event = event
         self.groutine = where
-        self.value = value
+        self._value = value
+
+    def __getattr__(self, name):
+        return getattr(self._value, name)
+
+    def __dir__(self):
+        return ['event', 'groutine'] + dir(self._value)
 
     def __str__(self):
         head = '%d %s' % (events.index(self) + 1, self.event)
-        value = dedent(str(self.value))
+        value = dedent(str(self._value))
         return os.linesep.join( (head, value))
 
     __repr__ = __str__
