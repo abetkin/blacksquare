@@ -81,3 +81,21 @@ class InteractiveScenario(Scenario):
 
 IScenario = InteractiveScenario
 
+
+class Manager(object):
+
+    def __init__(self):
+        self._groutines = []
+
+    def get_alive(self):
+        1
+
+    def add_groutine(self, g):
+        1
+
+    def include(self, other):
+        1
+
+    def run(self, function):
+        1
+
