@@ -1,0 +1,50 @@
+from groutines import (Groutine, FunctionCall, Event, switch, greenlet,
+                       wait_any, listen_any,)
+
+@Groutine()
+def start_view():
+    view, request = FunctionCall(
+            'rest_framework.views.APIView.dispatch').wait('ENTER')
+    Event('DISPATCH').fire(view, request)
+
+@Groutine(FunctionCall('rest_framework.views.APIView.check_permissions'),
+          typ='ENTER')
+def check_permissions(view, request, **kw):
+    return True
+
+
+@Groutine('DISPATCH')
+def fill_user(view, request):
+    _, snippet = FunctionCall((view, 'pre_save')).wait(typ='ENTER')
+    snippet.owner = User.objects.get(username='vitalii')
+
+
+@Groutine('DISPATCH')
+def deserialization(view, request):
+    srlzer, data, files = FunctionCall('rest_framework.serializers.Serializer'
+                                       '.from_native',
+                                       argnames=['data', 'files']
+                                       ).wait('ENTER')
+    code_field = srlzer.fields['code']
+    print FunctionCall((code_field, 'field_from_native')).wait()
+ 
+    def _fcalls():
+        for field_name, field in srlzer.fields.items():
+            yield FunctionCall(
+                (field, 'field_from_native'),
+                argnames=['data', 'files', 'field_name', 'into'])
+    while True:
+        field_name, into = wait_any(list(_fcalls()))[-2:]
+        print field_name, '->', into.get(field_name, '----')
+
+
+#@groutine(FunctionCall('rest_framework.serializers.Field'
+#                        '.field_from_native') ,once=False)
+#def _1(field, data, files, field_name, into, **kw):
+#    print field_name, '->', into.get(field_name, '----')
+
+@Groutine(FunctionCall('rest_framework.response.Response',
+                       argnames=('data', 'status')))
+def make_responses_raise_exc(data, status, *args, **kw):
+    if status // 100 != 2:
+        raise Exception(data)
