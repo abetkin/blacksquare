@@ -3,12 +3,10 @@
 from functools import reduce, wraps
 import six
 
-from util import is_classmethod, import_obj
-from local import get_tree
+from .util import is_classmethod, import_obj
+from .local import tlocal, Tree
 
-
-
-class Patch(object):
+class Patch:
     '''
     Record about function to be patched
     '''
@@ -17,7 +15,14 @@ class Patch(object):
     #path = 'a.b.c'
 
     #TODO: condition, dep. condition
+    '''
 
+
+
+
+
+
+    '''
     def __init__(self, target, path=None, replacement=None):
         '''
         target: str or (container, 'attribute')
@@ -38,18 +43,18 @@ class Patch(object):
         self.patched = False
 
     #XXX
-    def check_deps(self):
-        for dep in self.dependencies:
-            tree = get_tree()
-            path = dep.split('.')
-            for name in path:
-                if name not in tree:
-                    return False
-                tree = tree[name]
-        return True
+    #def check_deps(self):
+    #    for dep in self.dependencies:
+    #        tree = get_tree()
+    #        path = dep.split('.')
+    #        for name in path:
+    #            if name not in tree:
+    #                return False
+    #            tree = tree[name]
+    #    return True
 
     def handle_return(self, value):
-        tree = get_tree()
+        tree = Tree.instance()
         path = self._path.split('.')
         last = path.pop()
         if not path:
@@ -57,6 +62,8 @@ class Patch(object):
         else:
             parent = reduce(lambda x,y: x[y], path, tree)
         parent[last] = value
+
+        # log
 
     def patch(self):
         '''
@@ -97,44 +104,68 @@ class Patch(object):
         wrapper.__name__ = wrapped.__name__
         return wrapper
 
+from itertools import groupby
 
-class PatchManager(object):
+class PatchManager: # 1
 
     def __init__(self, *records):
-        self.records = records
+        self.records_no_deps = [rec for rec in records
+                                if not rec.has_deps()]
+        self.records_with_deps = [rec for rec in records
+                                  if rec not in self.records_no_deps]
 
-    def __enter__(self):
+    @classmethod
+    def instance(cls):
+        if not hasattr(tlocal, 'manager'):
+            tlocal.manager = cls()
+        return tlocal.manager
+
+    def patch_all(self):
         for thing in self.records:
             thing.patch()
+
+    def restore_all(self):
+        for thing in self.records:
+            thing.restore()
+
+    def new_value_in_context(self, name):
+        for record in self.records_with_deps:
+            ''
+
+
+    #
+
+    def __enter__(self):
+        self.patch_all()
 
     def __exit__(self, *exc_info):
         if exc_info[0]: #XXX
             raise
-        for thing in self.records:
-            thing.restore()
+        self.restore_all()
 
-if __name__ == '__main__':
 
-    class SomeClass(object):
-
-        def __init__(self):
-            self.a = 1
-
-        def start(self):
-            return 1
-
-        @classmethod
-        def middle(cls, default=2):
-            return default
-
-        def end(self):
-            return 1
-
-    pm = PatchManager(
-        Patch('__main__.SomeClass.middle'),
-    )
-
-    o = SomeClass()
-    with pm:
-        print( SomeClass.middle(default=6))
+#if __name__ == '__main__':
+#
+#    class SomeClass:
+#
+#        def __init__(self):
+#            self.a = 1
+#
+#        def start(self):
+#            return 1
+#
+#        @classmethod
+#        def middle(cls, default=2):
+#            return default
+#
+#        def end(self):
+#            return 1
+#
+#    pm = PatchManager(
+#        Patch('__main__.SomeClass.middle'),
+#    )
+#
+#    o = SomeClass()
+#    with pm:
+#        print( SomeClass.middle(default=6))
 

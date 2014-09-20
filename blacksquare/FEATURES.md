@@ -10,5 +10,6 @@ separate "events" tree and attributes tree.
 
 
 serializers: add hook for adding item to errors dict (after what event)
+dummy request
 
 smart logger: make python objects correspond to a text line
