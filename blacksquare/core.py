@@ -4,7 +4,7 @@ import inspect
 from functools import reduce, wraps
 import six
 
-from .util import is_classmethod, import_obj
+from .util import import_obj
 from .local import tlocal, Tree, Logger
 
 class Patch:
@@ -12,7 +12,7 @@ class Patch:
     Record about function to be patched
     '''
 
-    def __init__(self, target, path=None, replacement=None):
+    def __init__(self, target, replacement=None):
         '''
         target: str or (container, 'attribute')
         path: path to store in a tree. Defaults to function name.
@@ -26,10 +26,13 @@ class Patch:
 
         self._replacement = wraps(self._target)(replacement) \
                             if replacement else None
-        self._path = path or self._target.__name__
 
         self.deps = []
         self.patched = False
+
+    @classmethod
+    def from_classdef(cls):
+        1
 
     def log_call(self, wrapped, args, kwargs, rv):
         #TODO: customize logging to be usable not only for post-hooks
@@ -65,6 +68,8 @@ class Patch:
         # For PY3 we can use simple decorator as a wrapper,
         # since methods accessed from class are just regular functions.
 
+        #TODO: if wrapped has __self__, it should be handled
+
         # for PY2 we can use wrapt.WeakFunctionProxy.
 
         def wrapper(*args, **kwargs):
@@ -88,7 +93,7 @@ class PatchManager: # 1
 
     def __init__(self, *records):
         self.records_no_deps = [rec for rec in records
-                                if not rec.has_deps()]
+                                if not rec.deps]
         self.records_with_deps = [rec for rec in records
                                   if rec not in self.records_no_deps]
 
@@ -99,7 +104,7 @@ class PatchManager: # 1
         return tlocal.manager
 
     def patch_all(self):
-        for thing in self.records:
+        for thing in self.records_no_deps:
             thing.patch()
 
     def restore_all(self):

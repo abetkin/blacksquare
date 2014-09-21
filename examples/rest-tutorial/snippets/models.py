@@ -32,7 +32,6 @@ class Snippet(models.Model):
         Use the `pygments` library to create a highlighted HTML
         representation of the code snippet.
         """
-#        import ipdb; ipdb.set_trace()
         lexer = get_lexer_by_name(self.language)
         linenos = self.linenos and 'table' or False
         options = self.title and {'title': self.title} or {}

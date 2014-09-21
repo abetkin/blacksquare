@@ -99,8 +99,6 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
     # Uncomment the next line for simple clickjacking protection:
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
-    'groutines.middleware.GMiddleware',
 )
 
 ROOT_URLCONF = 'tutorial.urls'
@@ -170,6 +168,4 @@ if os.environ.get('HEROKU'):  # heroku config:set HEROKU=1
 
 LOGIN_REDIRECT_URL = '/'
 
-GROUTINES_ON = True
-GROUTINES_FINDER_REGEXP = r'^grout\w*'
 
