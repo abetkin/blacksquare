@@ -7,17 +7,13 @@ from functools import reduce
 
 tlocal = threading.local()
 
-#def get_tree():
-
-
-
-class CallRecord(object):
-    '''
-    Record about function call.
-    '''
-
-    def __init__(self, ):
-        pass
+class Logger(list):
+    
+    @classmethod
+    def instance(cls):
+        if not hasattr(tlocal, 'logger'):
+            tlocal.logger = cls()
+        return tlocal.logger
 
 
 class Tree(object):

@@ -26,12 +26,3 @@ def import_obj(name):
         obj = getattr(parent, part)
     return parent, part, obj
 
-
-def is_classmethod(obj):
-    if sys.version_info[0] == 2:
-        # Python 2
-        return (isinstance(obj, types.UnboundMethodType)
-                and  isinstance(obj.__self__, type))
-    # Python 3
-    return (isinstance(obj, types.MethodType)
-            and  isinstance(obj.__self__, type))

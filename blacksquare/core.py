@@ -1,28 +1,17 @@
 # -*- coding: utf-8 -*-
 
+import inspect
 from functools import reduce, wraps
 import six
 
 from .util import is_classmethod, import_obj
-from .local import tlocal, Tree
+from .local import tlocal, Tree, Logger
 
 class Patch:
     '''
     Record about function to be patched
     '''
 
-    #dependencies = ['a.b', 'a.bb']
-    #path = 'a.b.c'
-
-    #TODO: condition, dep. condition
-    '''
-
-
-
-
-
-
-    '''
     def __init__(self, target, path=None, replacement=None):
         '''
         target: str or (container, 'attribute')
@@ -39,39 +28,20 @@ class Patch:
                             if replacement else None
         self._path = path or self._target.__name__
 
-        self.dependencies = []
+        self.deps = []
         self.patched = False
 
-    #XXX
-    #def check_deps(self):
-    #    for dep in self.dependencies:
-    #        tree = get_tree()
-    #        path = dep.split('.')
-    #        for name in path:
-    #            if name not in tree:
-    #                return False
-    #            tree = tree[name]
-    #    return True
-
-    def handle_return(self, value):
-        tree = Tree.instance()
-        path = self._path.split('.')
-        last = path.pop()
-        if not path:
-            parent = tree
-        else:
-            parent = reduce(lambda x,y: x[y], path, tree)
-        parent[last] = value
-
-        # log
+    def log_call(self, wrapped, args, kwargs, rv):
+        #TODO: customize logging to be usable not only for post-hooks
+        #      but for custom replacement functions
+        sig = inspect.signature(wrapped)
+        call_args = sig.bind(*args, **kwargs)
+        Logger.instance().append( CallRecord(call_args, rv))
 
     def patch(self):
         '''
         Replace original with wrapper.
         '''
-        #if is_classmethod(self._target):
-        #    target = classmethod(self._target.__func__)
-        #else:
         target = self._target
         setattr(self._target_parent, self._target_attribute, self(target))
         self.patched = True
@@ -82,6 +52,14 @@ class Patch:
         '''
         setattr(self._target_parent, self._target_attribute, self._target)
         self.patched = False
+
+    def check_ready(self):
+        #TODO: custom conditions
+        for dep in self.deps:
+            if dep not in Tree.instance:
+                break
+        else:
+            return True
 
     def __call__(self, wrapped):
         # For PY3 we can use simple decorator as a wrapper,
@@ -98,7 +76,7 @@ class Patch:
                     rv = wrapped(*args, **kwargs)
             finally:
                 self.patch()
-            self.handle_return(rv)
+            self.log_call(wrapped, args, kwargs, rv)
             return rv
 
         wrapper.__name__ = wrapped.__name__
@@ -125,12 +103,15 @@ class PatchManager: # 1
             thing.patch()
 
     def restore_all(self):
-        for thing in self.records:
+        for thing in (self.records_no_deps + self.records_with_deps):
             thing.restore()
 
     def new_value_in_context(self, name):
         for record in self.records_with_deps:
-            ''
+            if name not in record.deps:
+                return
+            if record.check_ready():
+                record.patch()
 
 
     #
@@ -142,6 +123,16 @@ class PatchManager: # 1
         if exc_info[0]: #XXX
             raise
         self.restore_all()
+
+
+class CallRecord(object):
+    '''
+    Record about function call.
+    '''
+
+    def __init__(self, call_args, rv):
+        self.call_args = call_args
+        self.rv = rv
 
 
 #if __name__ == '__main__':
