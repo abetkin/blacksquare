@@ -34,6 +34,11 @@ class Patch:
     def from_classdef(cls):
         1
 
+    def _detach(cls, target): # from __self__
+        target.__self__
+        return target.__func__
+
+
     def log_call(self, wrapped, args, kwargs, rv):
         #TODO: customize logging to be usable not only for post-hooks
         #      but for custom replacement functions

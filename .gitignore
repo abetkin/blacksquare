@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 
+*.env
+*TODO*
+*.sqlite*
+
 # C extensions
 *.so
 
