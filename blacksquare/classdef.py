@@ -18,9 +18,11 @@ class patch(type):
         except ValueError:
             print("Can patch only 1 class")
             raise
-        if getattr(cls, 'patch_only', None):
-            1
-        return type.__new__(cls, name, bases, classdict)
+        if getattr(cls, 'patch_only', ()):
+            classdict = {name: attr for name, attr in classdict
+                         if name in cls.patch_only}
+        #return type.__new__(cls, name, (object,), classdict)
+        return
 
     #def __init__(cls, *args, attrs=None):
     #    return type.__init__(cls, *args)
