@@ -12,6 +12,8 @@ class Patch:
     Record about function to be patched
     '''
 
+    #TODO: simplify
+    #TODO: (self, parent, attribute, replacement)
     def __init__(self, target, replacement=None):
         '''
         target: str or (container, 'attribute')
@@ -133,6 +135,12 @@ class PatchManager: # 1
         if exc_info[0]: #XXX
             raise
         self.restore_all()
+
+
+class Container:
+    'Contains .patches'
+
+
 
 
 class CallRecord(object):

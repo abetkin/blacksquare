@@ -14,4 +14,4 @@ rec.depend(req='ctx.a.request')
 
 '''
 
-from .core import PatchManager, Patch
+from .core import PatchManager, Patch, Container

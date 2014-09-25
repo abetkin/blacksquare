@@ -1,4 +1,11 @@
 
+from . import Container, Patch
+
+def get_patches(old_class, classdict):
+    for name, func in classdict.items():
+        old_func = getattr(old_class, name) # detach ?
+        yield Patch(old_class, old_func, func)
+
 
 class patch(type):
     '''
@@ -10,6 +17,7 @@ class patch(type):
         return {}
 
 
+
     def __new__(cls, name, bases, classdict, #attrs=None
                 ):
         # classdict is all we need
@@ -19,10 +27,11 @@ class patch(type):
             print("Can patch only 1 class")
             raise
         if getattr(cls, 'patch_only', ()):
-            classdict = {name: attr for name, attr in classdict
+            classdict = {name: attr for name, attr in classdict.items()
                          if name in cls.patch_only}
         #return type.__new__(cls, name, (object,), classdict)
-        return
+        patches = list(get_patches())
+        return Container(patches)
 
     #def __init__(cls, *args, attrs=None):
     #    return type.__init__(cls, *args)
