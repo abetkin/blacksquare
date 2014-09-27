@@ -56,12 +56,12 @@ class PatchManager(ThreadLocalMixin):
         for thing in self.records_no_deps + self.records_with_deps:
             thing.restore()
 
-    def new_value_in_context(self, name):
-        for record in self.records_with_deps:
-            if name not in record.deps:
-                return
-            if record.check_ready():
-                record.patch()
+    #def new_value_in_context(self, name):
+    #    for record in self.records_with_deps:
+    #        if name not in record.deps:
+    #            return
+    #        if record.check_ready():
+    #            record.patch()
 
 
     #
