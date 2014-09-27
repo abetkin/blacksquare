@@ -1,37 +1,45 @@
 
 from . import Container, Patch
 
-def get_patches(old_class, classdict):
-    for name, func in classdict.items():
-        old_func = getattr(old_class, name) # detach ?
-        yield Patch(old_class, old_func, func)
-
-
 class patch(type):
     '''
     '''
 
-    @classmethod
-    def __prepare__(metacls, name, bases#, attrs=None
-                    ):
-        return {}
+    #@classmethod
+    #def __prepare__(metacls, name, bases#, attrs=None
+    #                ):
+    #    return {}
 
 
 
-    def __new__(cls, name, bases, classdict, #attrs=None
-                ):
-        # classdict is all we need
+    def __new__(cls, name, bases, classdict):
         try:
             (old_class,) = bases
         except ValueError:
-            print("Can patch only 1 class")
-            raise
+            raise AssertionError("Patch can extend only the class being patched")
         if getattr(cls, 'patch_only', ()):
             classdict = {name: attr for name, attr in classdict.items()
                          if name in cls.patch_only}
-        #return type.__new__(cls, name, (object,), classdict)
-        patches = list(get_patches())
+        patches = []
+        for name, func in classdict.items():
+            if getattr(func, 'is_hook', None):
+                kw = {'hook': func}
+            else:
+                kw = {'replacement': func}
+            patch = Patch(old_class, name, **kw)
+            patches.append(patch)
         return Container(patches)
 
     #def __init__(cls, *args, attrs=None):
     #    return type.__init__(cls, *args)
+
+
+##############
+'''
+class New(Old):
+
+    #repl
+    def method(self):
+        Old.method(self)
+'''
+

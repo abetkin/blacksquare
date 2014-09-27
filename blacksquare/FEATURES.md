@@ -17,3 +17,6 @@ smart logger: make python objects correspond to a text line
 test: set timer, say, on serialization
 
 structure: patch -> classdef
+
+
+log/dbg/test/ptch
