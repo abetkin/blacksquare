@@ -1,23 +1,27 @@
 
 from .threadlocal import Config
+from . import handlers
 
 class Event:
 
-    @classmethod
-    def get_handlers(cls):
-        # take from class also
-        return Config.instance().get_event_handlers(cls)
+    handlers = []
 
     @classmethod
-    def emit(cls, value):
+    def get_handlers(cls):
+        handlers = cls.handlers
+        handlers.extend( Config.instance().get_event_handlers(cls))
+        return handlers
+
+    @classmethod
+    def emit(cls, *args, **kw):
         for handler in cls.get_handlers():
-            handler.handle(cls, value)
+            handler(cls, *args, **kw)
 
 
 class ContextChange(Event):
-    pass
+    handlers = [handlers.recheck_depedencies]
 
-class FunctionExecuted:
+class FunctionExecuted(Event):
     pass
 
 class ReplacementFunctionExecuted(FunctionExecuted):

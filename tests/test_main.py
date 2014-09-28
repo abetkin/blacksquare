@@ -1,13 +1,13 @@
 
 import unittest
 
-from blacksquare import Patch, PatchManager
+from blacksquare import Patch, PatchManager, Config
 
 
-class Some(unittest.TestCase):
-    1
+class MyConfig(Config):
 
-
+    def get_patches(self):
+        1
 
 
 if __name__ == '__main__':

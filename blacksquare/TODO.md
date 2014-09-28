@@ -1,5 +1,7 @@
-condition, dep. condition
+condition, dep. condition -> event handlers
 
 embedded shell
 
-! function call can trigger a function only if explicitly set.
+patch mgr: on / off
+
+handlers: global objects

@@ -74,3 +74,6 @@ class PatchManager(ThreadLocalMixin):
             raise
         self.restore_all()
 
+
+class Logger(ThreadLocalMixin, list):
+    pass

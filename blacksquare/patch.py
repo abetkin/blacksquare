@@ -38,13 +38,6 @@ class Patch:
 
 
 
-def log_call(wrapped, args, kwargs, rv):
-    #TODO: customize logging to be usable not only for post-hooks
-    #      but for custom replacement functions
-    sig = inspect.signature(wrapped)
-    call_args = sig.bind(*args, **kwargs)
-    Logger.instance().append( CallRecord(call_args, rv))
-
 
 class Wrapper:
 

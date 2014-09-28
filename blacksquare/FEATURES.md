@@ -4,10 +4,6 @@ easy to debug
 
 cli for request
 
-alternative interface; possibly also "events"
-
-separate "events" tree and attributes tree.
-
 
 serializers: add hook for adding item to errors dict (after what event)
 dummy request
