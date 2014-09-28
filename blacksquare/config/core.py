@@ -1,4 +1,4 @@
-from .base import ThreadLocalMixin
+from ..core.threadlocal import ThreadLocalMixin
 
 class Config(ThreadLocalMixin):
 
@@ -7,3 +7,6 @@ class Config(ThreadLocalMixin):
 
     def get_event_handlers(self, event_cls):
         return []
+
+    def get_patches(self):
+        1

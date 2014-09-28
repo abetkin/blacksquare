@@ -1,29 +1,36 @@
-import inspect
+from functools import wraps
 from types import MethodType
-
-from .log import Logger, CallRecord
 from .events import ReplacementFunctionExecuted, OriginalFunctionExecuted
-
 
 class Patch:
 
-    def __init__(self, parent, attribute, hook=None, replacement=None):
+    def __init__(self, parent, attribute, replacement=None, hook=None):
         self.parent = parent
         self.attribute = attribute
         self.original = getattr(self.parent, self.attribute)
-        self.replacement = self.prepare_replacement(hook, replacement)
+        self.replacement = self.prepare_replacement(replacement, hook)
 
-    def prepare_replacement(self, hook=None, replacement=None):
+    def prepare_replacement(self, replacement=None, hook=None):
         # detach from __self__
-        __self__ = self.original.__self__
-        func = self.original.__func__
+        if hasattr(self.original, '__self__'):
+            func = self.original.__func__
+            __self__ = self.original.__self__
+        else:
+            func = self.original
+            __self__ = None
+
          # make wrapper
-        wrapper = Wrapper(self, func, hook, replacement)
+        wrapper = Wrapper(self, func, replacement, hook)
+
+        @wraps(func)
+        def replacement(*args, **kw):
+            return wrapper(*args, **kw)
+
         # attach back
         if isinstance(__self__, type):
-            replacement = classmethod(wrapper)
-        else:
-            replacement = MethodType(wrapper, __self__)
+            replacement = classmethod(replacement)
+        elif __self__:
+            replacement = MethodType(replacement, __self__)
         return replacement
 
     def on(self):
@@ -37,11 +44,19 @@ class Patch:
         return getattr(self.parent, self.attribute) != self.original
 
 
+    def add_dependencies(self, *deps):
+        '''
+        on the context state
+        '''
+        self._deps = deps
+
+    def get_dependencies(self):
+        return getattr(self, '_deps', ())
 
 
 class Wrapper:
 
-    def __init__(self, patch, wrapped, hook=None, replacement=None):
+    def __init__(self, patch, wrapped, replacement=None, hook=None):
         self.patch = patch
         self.wrapped = wrapped
         assert not (hook and replacement), ("You can define either "
@@ -54,6 +69,8 @@ class Wrapper:
         1
 
     def __call__(self, *args, **kwargs):
+        #import ipdb; ipdb.set_trace()
+
         self.patch.off()
         try:
             if self.replacement:

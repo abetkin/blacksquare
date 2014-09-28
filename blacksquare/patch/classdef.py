@@ -1,16 +1,9 @@
 
-from . import Container, Patch
+from .base import Container, Patch
 
 class patch(type):
     '''
     '''
-
-    #@classmethod
-    #def __prepare__(metacls, name, bases#, attrs=None
-    #                ):
-    #    return {}
-
-
 
     def __new__(cls, name, bases, classdict):
         try:
@@ -29,10 +22,6 @@ class patch(type):
             patch = Patch(old_class, name, **kw)
             patches.append(patch)
         return Container(patches)
-
-    #def __init__(cls, *args, attrs=None):
-    #    return type.__init__(cls, *args)
-
 
 ##############
 '''
