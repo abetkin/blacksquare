@@ -2,6 +2,8 @@ from ..core.threadlocal import ThreadLocalMixin
 
 class Config(ThreadLocalMixin):
 
+    # dyn add patches? patches - global!
+
     def __init__(self):
         'read from somewhere'
 

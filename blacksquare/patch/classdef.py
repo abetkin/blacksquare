@@ -10,9 +10,11 @@ class patch(type):
             (old_class,) = bases
         except ValueError:
             raise AssertionError("Patch can extend only the class being patched")
+        classdict = {k:v for k,v in classdict.items() if not k.startswith('__')}
         if getattr(cls, 'patch_only', ()):
             classdict = {name: attr for name, attr in classdict.items()
                          if name in cls.patch_only}
+
         patches = []
         for name, func in classdict.items():
             if getattr(func, 'is_hook', None):
@@ -21,7 +23,11 @@ class patch(type):
                 kw = {'replacement': func}
             patch = Patch(old_class, name, **kw)
             patches.append(patch)
-        return Container(patches)
+
+        #class Patches(Container):
+        #    patches = patches
+
+        return type('Patches', (Container,), {'patches': patches})
 
 ##############
 '''

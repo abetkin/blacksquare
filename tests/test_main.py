@@ -2,7 +2,7 @@
 import unittest
 
 from blacksquare.config import Config
-from blacksquare.patch import Patch
+from blacksquare.patch import Patch, patch
 from blacksquare.manager import PatchManager
 
 from blacksquare.util import import_obj
@@ -16,7 +16,7 @@ class MyConfig(Config):
 
     def get_patches(self):
         return [
-            Patch(Calculator, 'add', replace_add)
+            #Patch(calc, 'add', replace_add)
         ]
 
 class Calculator:
@@ -24,11 +24,19 @@ class Calculator:
     def add(self, a, b):
         return a + b
 
-def replace_add(self, a, b):
-    return a - b
+class ReplaceAdd(Calculator, metaclass=patch):
+
+    def add(self, a, b):
+        return a - b
+
+#def replace_add(self, a, b):
+#    return a - b
 
 if __name__ == '__main__':
-    pm = PatchManager(MyConfig())
+    global calc
+    calc = Calculator()
+
+    pm = PatchManager(ReplaceAdd())
     with pm:
-        calc = Calculator()
+
         print( calc.add(2, 3))

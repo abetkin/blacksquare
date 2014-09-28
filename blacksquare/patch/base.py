@@ -88,14 +88,14 @@ class Wrapper:
         # manager-> default hooks: update deps
 
 
-
+# to change
 class Container:
     'Contains .patches'
 
-    def __init__(self, patches):
-        self._patches = patches
+    def __init__(self, patches=None):
+        if patches:
+            self.patches = patches
 
-    @property
-    def patches(self):
-        return self._patches
+    def get_patches(self):
+        return self.patches
 
