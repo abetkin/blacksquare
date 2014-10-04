@@ -27,6 +27,7 @@ class Calculator:
     def add(self, a, b):
         return a + b
 
+
 class WithError(Calculator, metaclass=patch):
 
     def error(self):
@@ -39,15 +40,15 @@ class WithError(Calculator, metaclass=patch):
 def replace_add(self, a, b):
     return a - b
 
-if __name__ == '__main__':
-    global calc
-    calc = Calculator()
+class Test(unittest.TestCase):
+    def setUp(self):
+        global calc
+        calc = Calculator()
 
-    with Patches( Patch(Calculator, 'add', replace_add)) as m:
-
-
-        print( calc.add(2, 3))
-        with Patches( *WithError()):
-            print( calc.add(2, 3))
-        print( calc.add(2, 3))
-    print( calc.add(2, 3))
+    def runTest(self):
+        with Patches( Patch(Calculator, 'add', replace_add)) as m:
+            self.assertEqual( calc.add(2, 3), -1)
+            with Patches( *WithError()):
+                self.assertAlmostEqual( calc.add(2, 3), 5.5)
+            self.assertEqual( calc.add(2, 3), -1)
+        self.assertEqual( calc.add(2, 3), 5)

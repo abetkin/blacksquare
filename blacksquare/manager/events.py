@@ -15,7 +15,7 @@ class DependenciesTrackerMixin:
             if not deps:
                 patch.on()
             for dep in deps:
-                assert dep not in tree
+                assert dep not in tree #FIXME turn on if dep is resolved !
                 self._dependencies.setdefault(dep, set()).add(patch)
 
     def remove_dependency(self, name):
@@ -57,6 +57,26 @@ class ManagersStack(DependenciesTrackerMixin, ThreadLocalMixin):
         assert mgr == top.manager
         for patch in top.patches:
             patch.off()
+
+
+class GlobalPatches(DependenciesTrackerMixin, ThreadLocalMixin):
+
+    global_name = 'controller'
+
+
+    def __init__(self):
+        super(ManagersStack, self).__init__()
+
+    def add_patches(self, patches, mgr=None):
+        # 1st manager is root
+        super(ManagersStack, self).add_patches(patches)
+
+    def manager_exit(self, mgr):
+        top = self.managers.pop()
+        assert mgr == top.manager
+        for patch in top.patches:
+            patch.off()
+
 
 
 class PatchesEnter(Event):
