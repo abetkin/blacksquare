@@ -4,10 +4,18 @@ from .events import ReplacementFunctionExecuted, OriginalFunctionExecuted
 
 class Patch:
 
-    def __init__(self, parent, attribute, replacement=None, hook=None):
+    def __init__(self, parent, attribute,
+                 replacement=None, hook=None,
+                 insert=False, # inserting non-existing attributes in parent
+                               # is off by default
+                 ):
         self.parent = parent
         self.attribute = attribute
-        self.original = getattr(self.parent, self.attribute)
+        try:
+            self.original = getattr(self.parent, self.attribute)
+        except AttributeError:
+            assert insert
+            self.original = None
         self.replacement = self.prepare_replacement(replacement, hook)
 
     def prepare_replacement(self, replacement=None, hook=None):
@@ -15,6 +23,9 @@ class Patch:
         if hasattr(self.original, '__self__'):
             func = self.original.__func__
             __self__ = self.original.__self__
+        #elif self.original.__class__.__name__ == 'property':
+        #    #TODO: not read-only properties ?
+        #    func = self.original.fget
         else:
             func = self.original
             __self__ = None
@@ -26,7 +37,7 @@ class Patch:
         def replacement(*args, **kw):
             return wrapper(*args, **kw)
 
-        # attach back
+        # attach back #TODO: special insert=True case
         if isinstance(__self__, type):
             replacement = classmethod(replacement)
         elif __self__:
@@ -37,7 +48,10 @@ class Patch:
         setattr(self.parent, self.attribute, self.replacement)
 
     def off(self):
-        setattr(self.parent, self.attribute, self.original)
+        if self.original:
+            setattr(self.parent, self.attribute, self.original)
+        else:
+            delattr(self.parent, self.attribute)
 
     @property
     def is_on(self):

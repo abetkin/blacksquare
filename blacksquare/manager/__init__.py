@@ -1,1 +1,1 @@
-from .base import PatchManager
+from .base import Patches

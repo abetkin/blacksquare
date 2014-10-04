@@ -12,7 +12,7 @@ class CallRecord(object):
         sig = inspect.signature(func)
         self.call_args = sig.bind(*args, **kwargs)
         self.rv = rv
-        Logger.instance().append(self)
+
 
 class Logger(ThreadLocalMixin, list):
     pass
@@ -25,4 +25,7 @@ class ReplacementFunctionExecuted(FunctionExecuted):
 
 class OriginalFunctionExecuted(FunctionExecuted):
 
-    handlers = [CallRecord]
+    @classmethod
+    def handle(cls, func, args, kwargs, rv):
+        record = CallRecord(func, args, kwargs, rv)
+        Logger.instance().append(record)
