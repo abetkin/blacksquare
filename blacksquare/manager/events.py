@@ -12,11 +12,14 @@ class DependenciesTrackerMixin:
         tree = ContextTree.instance()
         for patch in patches:
             deps = patch.get_dependencies()
-            if not deps:
-                patch.on()
+            deps_resolved = True
             for dep in deps:
-                assert dep not in tree #FIXME turn on if dep is resolved !
-                self._dependencies.setdefault(dep, set()).add(patch)
+                if dep not in tree:
+                    self._dependencies.setdefault(dep, set()).add(patch)
+                    deps_resolved = False
+
+            if deps_resolved:
+                patch.on()
 
     def remove_dependency(self, name):
         patches = self._dependencies.get(name)
