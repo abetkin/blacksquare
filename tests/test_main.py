@@ -84,8 +84,7 @@ class TestFormat(unittest.TestCase):
         calc = Calculator()
 
         with Patches( Patch(Calculator, 'add', replace_add)):
-            self.assertEqual(
-                    calc.add(2, 3),
-                    -1)
+            self.assertEqual( calc.add(2, 3), -1)
+
         out = str(Logger.instance())
         self.assertEqual(out, 'Call to add ( => replace_add)')

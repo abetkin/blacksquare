@@ -1,15 +1,12 @@
 import threading
 
-tlocal = threading.local()
+threadlocal = threading.local()
 
 class ThreadLocalMixin:
 
-    default_init_args = ()
-    default_init_kwargs = {}
-
     @classmethod
     def _get_instance(cls):
-        obj = tlocal
+        obj = threadlocal
         for part in cls.global_name.split('.'):
             parent = obj
             obj = getattr(parent, part)
@@ -19,15 +16,16 @@ class ThreadLocalMixin:
     def _set_instance(cls, instance):
         path, sep, attr = cls.global_name.rpartition('.')
         path = path.split('.') if path else ()
-        obj = tlocal
+        obj = threadlocal
         for part in path:
             parent = obj
             obj = getattr(parent, part)
         setattr(obj, attr, instance)
 
     @classmethod
-    def _make_instance(cls):
-        return cls(*cls.default_init_args, **cls.default_init_kwargs)
+    def make_instance(cls):
+        'Can be overriden.'
+        return cls()
 
     def __new__(cls, *args, **kw):
         instance = super(ThreadLocalMixin, cls).__new__(cls, *args, **kw) #PY2 :(
@@ -39,6 +37,6 @@ class ThreadLocalMixin:
         try:
             inst = cls._get_instance()
         except AttributeError:
-            inst = cls._make_instance()
+            inst = cls.make_instance()
             cls._set_instance(inst)
         return inst
