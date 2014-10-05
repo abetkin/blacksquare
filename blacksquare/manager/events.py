@@ -63,18 +63,21 @@ class GlobalPatches(DependenciesTrackerMixin, ThreadLocalMixin):
 
     global_name = 'controller'
 
-
     def __init__(self):
-        super(ManagersStack, self).__init__()
+        super(GlobalPatches, self).__init__()
+        self.patches = []
+        self.root_manager = None
 
     def add_patches(self, patches, mgr=None):
-        # 1st manager is root
-        super(ManagersStack, self).add_patches(patches)
+        super(GlobalPatches, self).add_patches(patches)
+        self.patches.extend( patches)
+        if mgr and not self.root_manager:
+            self.root_manager = mgr
 
     def manager_exit(self, mgr):
-        top = self.managers.pop()
-        assert mgr == top.manager
-        for patch in top.patches:
+        if mgr != self.root_manager:
+            return
+        for patch in reversed(self.patches):
             patch.off()
 
 
