@@ -2,7 +2,7 @@ from collections import defaultdict
 from functools import reduce
 
 from ..core.threadlocal import ThreadLocalMixin
-
+from .events import ContextChange
 
 class ContextTree(ThreadLocalMixin):
 
@@ -16,7 +16,6 @@ class ContextTree(ThreadLocalMixin):
         self._tree = _tree()
 
     def __setitem__(self, name, value):
-        from .events import ContextChange #FIXME
         ContextChange.emit(name)
 
         path = name.split('.')
@@ -33,3 +32,4 @@ class ContextTree(ThreadLocalMixin):
         if isinstance(value, defaultdict) and not value:
             raise KeyError(name)
         return value
+

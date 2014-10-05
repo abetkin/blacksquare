@@ -1,7 +1,5 @@
-from ..core.events import Event
 from ..core.threadlocal import ThreadLocalMixin
-from ..config.core import Config
-from ..context import ContextTree
+from .context import ContextTree
 
 class DependenciesTrackerMixin:
 
@@ -58,7 +56,7 @@ class ManagersStack(DependenciesTrackerMixin, ThreadLocalMixin):
     def manager_exit(self, mgr):
         top = self.managers.pop()
         assert mgr == top.manager
-        for patch in top.patches:
+        for patch in reversed(top.patches):
             patch.off()
 
 
@@ -82,20 +80,3 @@ class GlobalPatches(DependenciesTrackerMixin, ThreadLocalMixin):
             return
         for patch in reversed(self.patches):
             patch.off()
-
-
-
-class PatchesEnter(Event):
-    
-    @classmethod
-    def handle(cls, patches, manager):
-        ctrl = Config.instance().get_controller_class().instance()
-        ctrl.add_patches(patches, manager)
-
-
-class PatchesExit(Event):
-
-    @classmethod
-    def handle(cls, manager):
-        ctrl = Config.instance().get_controller_class().instance()
-        ctrl.manager_exit(manager)

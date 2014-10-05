@@ -6,8 +6,8 @@ class Patch:
 
     def __init__(self, parent, attribute,
                  replacement=None, hook=None,
-                 insert=False, # inserting non-existing attributes in parent
-                               # is off by default
+                 insert=False, # to be able to create a patch that adds
+                               # new attribute you should pass insert=True
                  ):
         self.parent = parent
         self.attribute = attribute
@@ -77,14 +77,11 @@ class Wrapper:
                                             "hook or replacement")
         self.hook = hook
         self.replacement = replacement
-        #TODO: __name__, __doc__
 
-    def __str__(self):
-        1
+    #def __str__(self):
+    #    1
 
     def __call__(self, *args, **kwargs):
-        #import ipdb; ipdb.set_trace()
-
         self.patch.off()
         try:
             if self.replacement:
@@ -98,18 +95,3 @@ class Wrapper:
             return rv
         finally:
             self.patch.on()
-        #log_call(self.wrapped, args, kwargs, rv)
-        # manager-> default hooks: update deps
-
-
-# to change
-class Container:
-    'Contains .patches'
-
-    def __init__(self, patches=None):
-        if patches:
-            self.patches = patches
-
-    def get_patches(self):
-        return self.patches
-

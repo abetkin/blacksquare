@@ -3,8 +3,8 @@ import unittest
 
 from blacksquare.config import Config as BaseConfig
 from blacksquare.patch import Patch, patch
-from blacksquare.manager import Patches
-from blacksquare.manager.events import ManagersStack, GlobalPatches
+from blacksquare.manage import Patches
+from blacksquare.manage.handlers import ManagersStack, GlobalPatches
 
 from blacksquare.util import import_obj
 

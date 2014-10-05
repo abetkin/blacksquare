@@ -1,5 +1,5 @@
 
-from .base import Container, Patch
+from .base import Patch
 
 class patch(type):
     '''
@@ -11,17 +11,10 @@ class patch(type):
         except ValueError:
             raise AssertionError("Patch can extend only the class being patched")
         classdict = {k:v for k,v in classdict.items()
-                     if not k.startswith('__') # unless..
+                     if not k.startswith('__') or getattr(v, 'is_patch', False)
                      }
-        #if getattr(cls, 'patch_only', ()):
-        #    classdict = {name: attr for name, attr in classdict.items()
-        #                 if name in cls.patch_only}
-
         def patches():
             for name, func in classdict.items():
-                #if name == 'error':
-                #    import ipdb; ipdb.set_trace()
-
                 if getattr(func, 'is_hook', None):
                     kw = {'hook': func}
                 else:
@@ -31,22 +24,6 @@ class patch(type):
                 patch = Patch(old_class, name, **kw)
                 yield patch
 
-
-        1
-
-        #class Patches(Container):
-        #    patches = patches
-
-        #return type('Patches', (Container,), {'patches': patches}) # generator?
         return patches
 
-
-##############
-'''
-class New(Old):
-
-    #repl
-    def method(self):
-        Old.method(self)
-'''
 
