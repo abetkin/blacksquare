@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import sys
-import types
+import inspect
+import string
 
 def import_module(name):
     '''
@@ -26,3 +26,24 @@ def import_obj(name):
         obj = getattr(parent, part)
     return parent, part, obj
 
+
+
+class DotAccessFormatter(string.Formatter):
+
+    def get_value(self, key, args, kwds):
+        if not isinstance(key, str):
+            return string.Formatter.get_value(key, args, kwds)
+        # this should be context
+        value = args[0]
+
+        for attr in key.split('.'):
+            try:
+                value = getattr(value, attr)
+            except AttributeError as exc:
+                try:
+                    return value[attr]
+                except (KeyError, TypeError):
+                    raise exc
+        return value
+
+formatter = DotAccessFormatter()

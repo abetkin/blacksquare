@@ -16,7 +16,10 @@ class Patch:
         except AttributeError:
             assert insert
             self.original = None
+        self._replacement_func = replacement
+        self._hook_func = hook
         self.replacement = self.prepare_replacement(replacement, hook)
+
 
     def prepare_replacement(self, replacement=None, hook=None):
         # detach from __self__

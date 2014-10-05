@@ -11,5 +11,5 @@ class Config(ThreadLocalMixin):
         return []
 
     def get_controller_class(self):
-        from blacksquare.manager.events import ManagersStack, GlobalPatches
+        from blacksquare.manage.handlers import ManagersStack, GlobalPatches
         return GlobalPatches
