@@ -35,7 +35,7 @@ import collections
 
 class ManagersStack(DependenciesTrackerMixin, ThreadLocalMixin):
 
-    global_name = 'controller'
+    global_name = 'config.controller'
 
     StackItem = collections.namedtuple('StackItem', ['manager', 'patches'])
 
@@ -61,7 +61,7 @@ class ManagersStack(DependenciesTrackerMixin, ThreadLocalMixin):
 
 class GlobalPatches(DependenciesTrackerMixin, ThreadLocalMixin):
 
-    global_name = 'controller'
+    global_name = 'config.controller'
 
     def __init__(self):
         super(GlobalPatches, self).__init__()

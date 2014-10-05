@@ -8,19 +8,37 @@ class ThreadLocalMixin:
     default_init_kwargs = {}
 
     @classmethod
-    def get_global_name(cls):
-        if hasattr(cls, 'global_name'):
-            return cls.global_name
-        return cls.__name__.lower()
+    def _get_instance(cls):
+        obj = tlocal
+        for part in cls.global_name.split('.'):
+            parent = obj
+            obj = getattr(parent, part)
+        return obj
+
+    @classmethod
+    def _set_instance(cls, instance):
+        path, sep, attr = cls.global_name.rpartition('.')
+        path = path.split('.') if path else ()
+        obj = tlocal
+        for part in path:
+            parent = obj
+            obj = getattr(parent, part)
+        setattr(obj, attr, instance)
+
+    @classmethod
+    def _make_instance(cls):
+        return cls(*cls.default_init_args, **cls.default_init_kwargs)
 
     def __new__(cls, *args, **kw):
         instance = super(ThreadLocalMixin, cls).__new__(cls, *args, **kw) #PY2 :(
-        setattr(tlocal, cls.get_global_name(), instance)
+        cls._set_instance(instance)
         return instance
 
     @classmethod
     def instance(cls):
-        name = cls.get_global_name()
-        if not hasattr(tlocal, name):
-            cls(*cls.default_init_args, **cls.default_init_kwargs)
-        return getattr(tlocal, name)
+        try:
+            inst = cls._get_instance()
+        except AttributeError:
+            inst = cls._make_instance()
+            cls._set_instance(inst)
+        return inst

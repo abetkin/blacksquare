@@ -1,9 +1,10 @@
 #!env python3
 import unittest
 
-from blacksquare.config import Config
+from blacksquare.config import Config as BaseConfig
 from blacksquare.patch import Patch, patch
 from blacksquare.manager import Patches
+from blacksquare.manager.events import ManagersStack, GlobalPatches
 
 from blacksquare.util import import_obj
 
@@ -12,12 +13,6 @@ def make_patch(import_path, *args, **kw):
     return Patch(parent, attr, *args, **kw)
 
 
-#class MyConfig(Config):
-#
-#    def get_patches(self):
-#        return [
-#
-#        ]
 
 class Calculator:
 
@@ -40,12 +35,39 @@ class WithError(Calculator, metaclass=patch):
 def replace_add(self, a, b):
     return a - b
 
-class Test(unittest.TestCase):
+class TestGlobalPatches(unittest.TestCase):
+
     def setUp(self):
-        global calc
-        calc = Calculator()
+        class WithGlobalPatches(BaseConfig):
+            def get_controller_class(self):
+                return GlobalPatches
+
+        WithGlobalPatches()
+
 
     def runTest(self):
+        calc = Calculator()
+
+        with Patches( Patch(Calculator, 'add', replace_add)) as m:
+            self.assertEqual( calc.add(2, 3), -1)
+            with Patches( *WithError()):
+                self.assertAlmostEqual( calc.add(2, 3), 5.5)
+            self.assertEqual( calc.add(2, 3), 5.5)
+        self.assertEqual( calc.add(2, 3), 5)
+
+
+class TestManagersStack(unittest.TestCase):
+
+    def setUp(self):
+        class WithManagersStack(BaseConfig):
+            def get_controller_class(self):
+                return ManagersStack
+
+        WithManagersStack()
+
+    def runTest(self):
+        calc = Calculator()
+
         with Patches( Patch(Calculator, 'add', replace_add)) as m:
             self.assertEqual( calc.add(2, 3), -1)
             with Patches( *WithError()):

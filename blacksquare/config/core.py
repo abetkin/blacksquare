@@ -2,6 +2,7 @@ from ..core.threadlocal import ThreadLocalMixin
 
 class Config(ThreadLocalMixin):
 
+    global_name = "config"
 
     def __init__(self):
         'read from somewhere'
@@ -10,5 +11,5 @@ class Config(ThreadLocalMixin):
         return []
 
     def get_controller_class(self):
-        from blacksquare.manager.events import ManagersStack
-        return ManagersStack
+        from blacksquare.manager.events import ManagersStack, GlobalPatches
+        return GlobalPatches

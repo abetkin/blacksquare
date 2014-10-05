@@ -6,6 +6,8 @@ from ..core.threadlocal import ThreadLocalMixin
 
 class ContextTree(ThreadLocalMixin):
 
+    global_name = 'context'
+
     def __init__(self):
 
         def _tree():
