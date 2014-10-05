@@ -4,6 +4,7 @@ import string
 
 from ..core.threadlocal import ThreadLocalMixin
 from ..core.events import Event
+from ..config.core import Config
 
 #TODO add record_class to config
 class CallRecord(object):
@@ -41,12 +42,35 @@ class Logger(ThreadLocalMixin, list):
     __repr__ = __str__
 
 
+class EmbedShellHandler(object):
+    @classmethod
+    def handle(cls, wrapper, args, kwargs, rv):
+        config = Config.instance()
+        if config.is_set_bp_for(wrapper):
+            from ..manage.context import ContextTree
+            ctx = ContextTree()
+            if config.test_interactive:
+                config.test_interactive(ctx)
+                return
+            try:
+                assert config.use_ipython
+                import IPython
+                IPython.embed()
+            except (ImportError, AssertionError):
+                import code
+                code.interact(local={'ctx': ctx})
+
 class FunctionExecuted(Event):
 
     @classmethod
-    def handle(cls, func, args, kwargs, rv):
-        record = CallRecord(func, args, kwargs, rv)
+    def get_handlers(cls):
+        return (cls, EmbedShellHandler)
+
+    @classmethod
+    def handle(cls, wrapper, args, kwargs, rv):
+        record = CallRecord(wrapper, args, kwargs, rv)
         Logger.instance().append(record)
+
 
 
 class ReplacementFunctionExecuted(FunctionExecuted):

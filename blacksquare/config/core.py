@@ -13,3 +13,10 @@ class Config(ThreadLocalMixin):
     def get_controller_class(self):
         from blacksquare.manage.handlers import ManagersStack, GlobalPatches
         return GlobalPatches
+
+    use_ipython = True
+
+    test_interactive = False
+
+    def is_set_bp_for(self, wrapper):
+        return False

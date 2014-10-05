@@ -88,3 +88,25 @@ class TestFormat(unittest.TestCase):
 
         out = str(Logger.instance())
         self.assertEqual(out, 'Call to add ( => replace_add)')
+
+class TestEmbed(unittest.TestCase):
+
+    def setUp(test):
+        class SetBP(BaseConfig):
+            def is_set_bp_for(self, wrapper):
+                func = wrapper.wrapped
+                return func is Calculator.add
+
+            use_ipython = False
+
+            def test_interactive(self, ctx):
+                test.assert_( hasattr(ctx, '_tree'))
+
+        SetBP()
+
+        global calc
+        calc = Calculator()
+
+    def runTest(self):
+        with Patches( Patch(Calculator, 'add', replace_add)):
+            self.assertEqual( calc.add(2, 3), -1)

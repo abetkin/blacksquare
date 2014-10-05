@@ -4,7 +4,7 @@ class Event:
 
     @classmethod
     def get_handlers(cls):
-        return (cls,)
+        return (cls,) #FIXME cls.handle
 
     @classmethod
     def _get_handlers(cls):
