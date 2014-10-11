@@ -35,7 +35,8 @@ class DependenciesTrackerMixin:
 import collections
 
 class ManagersStack(DependenciesTrackerMixin, ThreadLocalMixin):
-
+    #TODO patches as tuple
+    #TODO leave only mgr
     global_name = 'config.controller'
 
     StackItem = collections.namedtuple('StackItem', ['manager', 'patches'])
@@ -55,7 +56,7 @@ class ManagersStack(DependenciesTrackerMixin, ThreadLocalMixin):
 
     def manager_exit(self, mgr):
         top = self.managers.pop()
-        assert mgr == top.manager
+        assert mgr == top.manager, '%s != %s' % (mgr, top.manager)
         for patch in reversed(top.patches):
             patch.off()
 

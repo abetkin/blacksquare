@@ -1,10 +1,13 @@
 #!env python3
 import unittest
+import random
+import logging
 
 from blacksquare.config import Config as BaseConfig
 from blacksquare.patch import Patch, patch
 from blacksquare.manage import Patches
 from blacksquare.manage.handlers import ManagersStack, GlobalPatches
+from blacksquare.manage.events import PatchesEnter, PatchesExit
 from blacksquare.manage.context import ContextTree
 from blacksquare.util import import_obj
 
@@ -13,7 +16,6 @@ from blacksquare.patch.events import Logger
 def make_patch(import_path, *args, **kw):
     parent, attr, _ = import_obj(import_path)
     return Patch(parent, attr, *args, **kw)
-
 
 
 class Calculator:
@@ -131,11 +133,12 @@ class TestEmbed(unittest.TestCase):
             use_ipython = False
 
             def test_interactive(self, ctx):
-                test.assert_( hasattr(ctx, '_tree'))
+                test.assertEqual(ctx['my.var'], 'my.value')
 
         SetBP()
 
     def runTest(self):
+        ContextTree.instance()['my.var'] = 'my.value'
         calc = Calculator()
 
         with Patches( Patch(Calculator, 'add', replace_add)):
@@ -145,13 +148,38 @@ class TestEmbed(unittest.TestCase):
         self.assertEqual(Calculator.add, Calculator_add)
 
 
-#class HackUnittest(unittest.TestCase):
-#
-#    def setUp(self):
-#        def runfunc(test, result=None):
-#            ContextTree.instance()['testing.test'] = test._testMethodName
-#            with Patches( Patch(unittest.TestCase, 'run', runfunc)):
-#                unittest.TestCase.run(test, result)
-#
-#    def tearDown(self):
-#        1
+class HackUnittest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        class SetController(BaseConfig):
+            def get_controller_class(self):
+                return random.choice( (ManagersStack, GlobalPatches))
+
+        SetController()
+
+        cls.unittest_TestCase_run = unittest.TestCase.run
+
+        def runfunc(test, result=None):
+            ContextTree.instance()['testing.test'] = test._testMethodName
+            unittest.TestCase.run(test, result)
+
+        cls._hacks = Patches( Patch(unittest.TestCase, 'run', runfunc))
+        PatchesEnter.handle(cls._hacks.patches, cls._hacks)
+
+
+    def test_with_name(self):
+        calc = Calculator()
+
+        with Patches( Patch(Calculator, 'add', replace_add)):
+            self.assertEqual( calc.add(2, 3), -1)
+            self.assertEqual(ContextTree.instance()['testing.test'],
+                             'test_with_name')
+        self.assertEqual(ContextTree.instance()['testing.test'],
+                             'test_with_name')
+
+
+    @classmethod
+    def tearDownClass(cls):
+        PatchesExit.handle(cls._hacks)
+        assert unittest.TestCase.run == cls.unittest_TestCase_run
