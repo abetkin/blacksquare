@@ -48,7 +48,7 @@ class EmbedShellHandler(object):
         config = Config.instance()
         if config.is_set_bp_for(wrapper):
             from ..manage.context import ContextTree
-            ctx = ContextTree()
+            ctx = ContextTree.instance()
             if config.test_interactive:
                 config.test_interactive(ctx)
                 return

@@ -54,6 +54,8 @@ class ManagersStack(DependenciesTrackerMixin, ThreadLocalMixin):
         super(ManagersStack, self).add_patches(patches)
 
     def manager_exit(self, mgr):
+
+
         top = self.managers.pop()
         assert mgr == top.manager
         for patch in reversed(top.patches):
@@ -80,3 +82,4 @@ class GlobalPatches(DependenciesTrackerMixin, ThreadLocalMixin):
             return
         for patch in reversed(self.patches):
             patch.off()
+        self.root_manager = None

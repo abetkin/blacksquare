@@ -16,3 +16,5 @@ structure: patch -> classdef
 
 
 log/dbg/test/ptch
+
+put in ctx: which test started

@@ -24,6 +24,7 @@ class Calculator:
     def add(self, a, b):
         return a + b
 
+Calculator_add = Calculator.add
 
 class WithError(Calculator, metaclass=patch):
 
@@ -34,12 +35,23 @@ class WithError(Calculator, metaclass=patch):
         self.val = a + b
         return self.val + self.error()
 
+
 def replace_add(self, a, b):
     return a - b
+
+
+#class TestPatching(unittest.TestCase):
+#
+#    def run(self, result=None):
+#
+
 
 class TestGlobalPatches(unittest.TestCase):
 
     def setUp(self):
+
+        self.assertEqual(Calculator.add, Calculator_add)
+
         class WithGlobalPatches(BaseConfig):
             def get_controller_class(self):
                 return GlobalPatches
@@ -57,10 +69,15 @@ class TestGlobalPatches(unittest.TestCase):
             self.assertEqual( calc.add(2, 3), 5.5)
         self.assertEqual( calc.add(2, 3), 5)
 
+    def tearDown(self):
+        self.assertEqual(Calculator.add, Calculator_add)
 
 class TestManagersStack(unittest.TestCase):
 
     def setUp(self):
+        self.assertEqual(Calculator.add, Calculator_add)
+        print('start')
+
         class WithManagersStack(BaseConfig):
             def get_controller_class(self):
                 return ManagersStack
@@ -75,10 +92,19 @@ class TestManagersStack(unittest.TestCase):
             with Patches( *WithError()):
                 self.assertAlmostEqual( calc.add(2, 3), 5.5)
             self.assertEqual( calc.add(2, 3), -1)
+
         self.assertEqual( calc.add(2, 3), 5)
 
+    def tearDown(self):
+        print('end')
+        self.assertEqual(Calculator.add, Calculator_add)
 
 class TestFormat(unittest.TestCase):
+
+    def setUp(self):
+        self.assertEqual(Calculator.add, Calculator_add)
+        logger = Logger.instance()
+        while logger: logger.pop()
 
     def runTest(self):
         calc = Calculator()
@@ -89,10 +115,17 @@ class TestFormat(unittest.TestCase):
         out = str(Logger.instance())
         self.assertEqual(out, 'Call to add ( => replace_add)')
 
+    def tearDown(self):
+        self.assertEqual(Calculator.add, Calculator_add)
+
+
 class TestEmbed(unittest.TestCase):
 
     def setUp(test):
+        test.assertEqual(Calculator.add, Calculator_add)
+
         class SetBP(BaseConfig):
+
             def is_set_bp_for(self, wrapper):
                 func = wrapper.wrapped
                 return func is Calculator.add
@@ -104,9 +137,13 @@ class TestEmbed(unittest.TestCase):
 
         SetBP()
 
-        global calc
+    def runTest(self):
         calc = Calculator()
 
-    def runTest(self):
+
         with Patches( Patch(Calculator, 'add', replace_add)):
             self.assertEqual( calc.add(2, 3), -1)
+
+    def tearDown(self):
+        self.assertEqual(Calculator.add, Calculator_add)
+
