@@ -4,8 +4,8 @@ import unittest
 from blacksquare.config import Config as BaseConfig
 from blacksquare.patch import Patch, patch
 from blacksquare.manage import Patches
-from blacksquare.manage.handlers import ManagersStack, GlobalPatches
-
+from blacksquare.manage.handlers import PatchesStack, GlobalPatches
+from blacksquare.manage.context import ContextTree
 from blacksquare.util import import_obj
 
 from blacksquare.patch.events import Logger
@@ -76,7 +76,6 @@ class TestManagersStack(unittest.TestCase):
 
     def setUp(self):
         self.assertEqual(Calculator.add, Calculator_add)
-        print('start')
 
         class WithManagersStack(BaseConfig):
             def get_controller_class(self):
@@ -96,7 +95,6 @@ class TestManagersStack(unittest.TestCase):
         self.assertEqual( calc.add(2, 3), 5)
 
     def tearDown(self):
-        print('end')
         self.assertEqual(Calculator.add, Calculator_add)
 
 class TestFormat(unittest.TestCase):
@@ -140,10 +138,20 @@ class TestEmbed(unittest.TestCase):
     def runTest(self):
         calc = Calculator()
 
-
         with Patches( Patch(Calculator, 'add', replace_add)):
             self.assertEqual( calc.add(2, 3), -1)
 
     def tearDown(self):
         self.assertEqual(Calculator.add, Calculator_add)
 
+
+class HackUnittest(unittest.TestCase):
+
+    def setUp(self):
+        def runfunc(test, result=None):
+            ContextTree.instance()['testing.test'] = test._testMethodName
+            with Patches( Patch(unittest.TestCase, 'run', runfunc)):
+                unittest.TestCase.run(test, result)
+
+    def tearDown(self):
+        1
