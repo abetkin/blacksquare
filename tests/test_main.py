@@ -4,7 +4,7 @@ import unittest
 from blacksquare.config import Config as BaseConfig
 from blacksquare.patch import Patch, patch
 from blacksquare.manage import Patches
-from blacksquare.manage.handlers import PatchesStack, GlobalPatches
+from blacksquare.manage.handlers import ManagersStack, GlobalPatches
 from blacksquare.manage.context import ContextTree
 from blacksquare.util import import_obj
 
@@ -145,13 +145,13 @@ class TestEmbed(unittest.TestCase):
         self.assertEqual(Calculator.add, Calculator_add)
 
 
-class HackUnittest(unittest.TestCase):
-
-    def setUp(self):
-        def runfunc(test, result=None):
-            ContextTree.instance()['testing.test'] = test._testMethodName
-            with Patches( Patch(unittest.TestCase, 'run', runfunc)):
-                unittest.TestCase.run(test, result)
-
-    def tearDown(self):
-        1
+#class HackUnittest(unittest.TestCase):
+#
+#    def setUp(self):
+#        def runfunc(test, result=None):
+#            ContextTree.instance()['testing.test'] = test._testMethodName
+#            with Patches( Patch(unittest.TestCase, 'run', runfunc)):
+#                unittest.TestCase.run(test, result)
+#
+#    def tearDown(self):
+#        1
