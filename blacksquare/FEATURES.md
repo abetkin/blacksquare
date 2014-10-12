@@ -18,3 +18,8 @@ structure: patch -> classdef
 log/dbg/test/ptch
 
 put in ctx: which test started
+
+LoggableEvent:
+
+str repr-n <-> obj ref-d by number
+context changed -> define your events

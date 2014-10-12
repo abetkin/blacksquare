@@ -1,4 +1,3 @@
-from collections import defaultdict
 from functools import reduce
 
 from ..core.threadlocal import ThreadLocalMixin
@@ -14,18 +13,9 @@ class ContextTree(ThreadLocalMixin):
     global_name = 'context'
 
     def __init__(self):
-
         self._dict = DictAndObject()
 
     def __setitem__(self, name, value):
-        #ContextChange.emit(name)
-        #path = name.split('.')
-        #last = path.pop()
-        #if not path:
-        #    parent = self._tree
-        #else:
-        #    parent = reduce(lambda x,y: x[y], path, self._tree)
-        #parent[last] = value
         ContextChange.emit(name)
 
         path = name.split('.')
@@ -37,8 +27,5 @@ class ContextTree(ThreadLocalMixin):
 
     def __getitem__(self, name):
         path = name.split('.')
-        try:
-            return reduce(lambda x,y: x[y], path, self._dict)
-        except KeyError:
-            raise KeyError(name)
+        return reduce(lambda x,y: x[y], path, self._dict)
 

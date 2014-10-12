@@ -11,7 +11,7 @@ from blacksquare.manage.events import PatchesEnter, PatchesExit
 from blacksquare.manage.context import ContextTree
 from blacksquare.util import import_obj
 
-from blacksquare.patch.events import Logger
+from blacksquare.core.events import Logger
 
 def make_patch(import_path, *args, **kw):
     parent, attr, _ = import_obj(import_path)

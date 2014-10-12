@@ -28,12 +28,12 @@ def import_obj(name):
 
 
 
-class DotAccessFormatter(string.Formatter):
+class ObjectFormatter(string.Formatter):
 
     def get_value(self, key, args, kwds):
         if not isinstance(key, str):
             return string.Formatter.get_value(key, args, kwds)
-        # this should be context
+        # this should be the context object
         value = args[0]
 
         for attr in key.split('.'):
@@ -46,4 +46,4 @@ class DotAccessFormatter(string.Formatter):
                     raise exc
         return value
 
-formatter = DotAccessFormatter()
+obj_formatter = ObjectFormatter()
