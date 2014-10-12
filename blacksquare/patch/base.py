@@ -2,6 +2,9 @@ from functools import wraps
 from types import MethodType
 from .events import ReplacementFunctionExecuted, OriginalFunctionExecuted
 
+from .. import get_config
+from ..manage.events import ContextChange
+
 class Patch:
 
     def __init__(self, parent, attribute,
@@ -18,10 +21,9 @@ class Patch:
             self.original = None
         self._replacement_func = replacement
         self._hook_func = hook
-        self.replacement = self.prepare_replacement(replacement, hook)
+        self.replacement = self._prepare_replacement(replacement, hook)
 
-    # _
-    def prepare_replacement(self, replacement=None, hook=None):
+    def _prepare_replacement(self, replacement=None, hook=None):
         # detach from __self__
         if hasattr(self.original, '__self__'):
             func = self.original.__func__
@@ -33,7 +35,7 @@ class Patch:
             func = self.original
             __self__ = None
 
-         # make wrapper
+        # make wrapper
         wrapper = Wrapper(self, func, replacement, hook)
 
         @wraps(func)
@@ -59,16 +61,6 @@ class Patch:
     @property
     def is_on(self):
         return getattr(self.parent, self.attribute) != self.original
-
-
-    def add_dependencies(self, *deps):
-        '''
-        on the context state
-        '''
-        self._deps = deps
-
-    def get_dependencies(self):
-        return getattr(self, '_deps', ())
 
 
 class Wrapper:
@@ -98,3 +90,44 @@ class Wrapper:
             return rv
         finally:
             self.patch.on()
+
+#class ConditionalPatch(Patch):
+#
+#    def is_ready(self):
+#        raise NotImplementedError()
+#
+#    event_to_listen = ContextChange
+#
+#    # enabled / disabled ?
+#
+#    def on(self):
+#        if self.is_ready():
+#            Patch.on(self)
+#        else:
+#            get_config().register_event_handler(self.event_to_listen,
+#                                                self.handler)
+#
+#    def handler(self):
+#        if self.is_ready():
+#            Patch.on(self)
+#            get_config().unregister_event_handler(self.event_to_listen,
+#                                                  self.handler)
+
+class SimpleConditionalPatch(Patch):
+    event_to_listen = ContextChange
+
+    def __init__(self, *args, **kw):
+        super(SimpleConditionalPatch, self).__init__(*args, **kw)
+        self._enabled = False
+        get_config().register_event_handler(self.event_to_listen, self.enable)
+
+    def on(self):
+        if not self._enabled:
+            return
+        super(SimpleConditionalPatch, self).on()
+
+    def enable(self, *args, **kw):
+        Patch.on(self)
+        self._enabled = True
+        get_config().unregister_event_handler(self.event_to_listen,
+                                              self.enable)

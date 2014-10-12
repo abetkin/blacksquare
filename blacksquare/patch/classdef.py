@@ -13,7 +13,7 @@ class patch(type):
         classdict = {k:v for k,v in classdict.items()
                      if not k.startswith('__') or getattr(v, 'is_patch', False)
                      }
-        def patches():
+        def patches(*aaaaaaaa):#FIXME
             for name, func in classdict.items():
                 if getattr(func, 'is_hook', None):
                     kw = {'hook': func}
@@ -26,4 +26,6 @@ class patch(type):
 
         return patches
 
-
+#
+#def meta(patch_class):
+#    1

@@ -1,7 +1,7 @@
 import inspect
 
 from ..core.events import LoggableEvent
-from ..config.core import Config
+from .. import get_config, get_context
 
 
 class FunctionExecuted(LoggableEvent):
@@ -14,10 +14,9 @@ class FunctionExecuted(LoggableEvent):
 
     #TODO: if breakpoint or error
     def embed_shell_if_breakpoint(self):
-        config = Config.instance()
+        config = get_config()
+        ctx = get_context()
         if config.is_set_bp_for(self.wrapper):
-            from ..manage.context import ContextTree
-            ctx = ContextTree.instance()
             if config.test_interactive:
                 config.test_interactive(ctx)
                 return
@@ -30,6 +29,7 @@ class FunctionExecuted(LoggableEvent):
                 code.interact(local={'ctx': ctx})
 
     def handle(self):
+        #
         self.embed_shell_if_breakpoint()
 
     def __str__(self):

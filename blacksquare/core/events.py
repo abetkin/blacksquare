@@ -1,6 +1,6 @@
 import os
 
-from ..config.core import Config
+from .. import get_config
 from .threadlocal import ThreadLocalMixin
 
 
@@ -13,7 +13,7 @@ class Event:
 
     @classmethod
     def _get_handlers(cls):
-        handlers = Config.instance().get_event_handlers(cls)
+        handlers = get_config().get_event_handlers(cls)
         if not handlers:
             handlers = cls.get_handlers()
         return handlers

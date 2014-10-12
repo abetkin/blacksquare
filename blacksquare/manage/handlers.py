@@ -34,7 +34,8 @@ class DependenciesTrackerMixin:
 
 import collections
 
-class ManagersStack(DependenciesTrackerMixin, ThreadLocalMixin):
+class ManagersStack(#DependenciesTrackerMixin,
+                    ThreadLocalMixin):
     #TODO patches as tuple
     #TODO leave only mgr
     global_name = 'config.controller'
@@ -52,7 +53,9 @@ class ManagersStack(DependenciesTrackerMixin, ThreadLocalMixin):
         else:
             item = self.StackItem(mgr, patches) # set?
             self.managers.append(item)
-        super(ManagersStack, self).add_patches(patches)
+        #super(ManagersStack, self).add_patches(patches)
+        for patch in patches:
+            patch.on()
 
     def manager_exit(self, mgr):
         top = self.managers.pop()
@@ -61,7 +64,8 @@ class ManagersStack(DependenciesTrackerMixin, ThreadLocalMixin):
             patch.off()
 
 
-class GlobalPatches(DependenciesTrackerMixin, ThreadLocalMixin):
+class GlobalPatches(#DependenciesTrackerMixin,
+                    ThreadLocalMixin):
 
     global_name = 'config.controller'
 
@@ -70,11 +74,14 @@ class GlobalPatches(DependenciesTrackerMixin, ThreadLocalMixin):
         self.patches = []
         self.root_manager = None
 
+    # TODO: rename to mgr_enter ?
     def add_patches(self, patches, mgr=None):
-        super(GlobalPatches, self).add_patches(patches)
+        #super(GlobalPatches, self).add_patches(patches)
         self.patches.extend( patches)
         if mgr and not self.root_manager:
             self.root_manager = mgr
+        for patch in patches:
+            patch.on()
 
     def manager_exit(self, mgr):
         if mgr != self.root_manager:

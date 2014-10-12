@@ -29,6 +29,12 @@ def import_obj(name):
 
 
 class ObjectFormatter(string.Formatter):
+    '''
+    Usage:
+        formatter.format("Here is {my.nested.attribute}", obj)
+
+    Attribute look-up understands dictionary keys and object attributes.
+    '''
 
     def get_value(self, key, args, kwds):
         if not isinstance(key, str):
