@@ -12,6 +12,7 @@ class FunctionExecuted(LoggableEvent):
         self.call_args = sig.bind(*args, **kwargs)
         self.rv = rv
 
+    #TODO: if breakpoint or error
     def embed_shell_if_breakpoint(self):
         config = Config.instance()
         if config.is_set_bp_for(self.wrapper):

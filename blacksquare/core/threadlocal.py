@@ -2,6 +2,10 @@ import threading
 
 threadlocal = threading.local()
 
+
+# TODO: maybe use werkzeug.local with LocalProxy
+# that allows to import such objects
+#
 class ThreadLocalMixin:
 
     @classmethod

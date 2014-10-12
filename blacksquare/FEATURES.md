@@ -23,3 +23,14 @@ LoggableEvent:
 
 str repr-n <-> obj ref-d by number
 context changed -> define your events
+
+locks
+
+bp: stop at event
+
+event groups
+
+
+customize patch: events
+
+remove deps!

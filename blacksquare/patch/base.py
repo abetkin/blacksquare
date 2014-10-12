@@ -20,7 +20,7 @@ class Patch:
         self._hook_func = hook
         self.replacement = self.prepare_replacement(replacement, hook)
 
-
+    # _
     def prepare_replacement(self, replacement=None, hook=None):
         # detach from __self__
         if hasattr(self.original, '__self__'):
