@@ -33,4 +33,3 @@ event groups
 
 customize patch: events
 
-remove deps!

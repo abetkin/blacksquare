@@ -3,6 +3,7 @@ from .base import Patch
 
 class patch(type):
     '''
+    TODO remove in favor of extending class
     '''
 
     def __new__(cls, name, bases, classdict):
