@@ -1,13 +1,54 @@
-from functools import wraps
+from functools import wraps, partial
 from types import MethodType
 from .events import ReplacementFunctionExecuted, OriginalFunctionExecuted
 
 from .. import get_config
 from ..manage.events import ContextChange
 
+# singledispatch ?
+
+class Wrapper:
+
+    def __init__(self, patch, wrapper_func, wrapped_func):
+        self.patch = patch
+        self.wrapped_func = wrapped_func
+        self.wrapper_func = wrapper_func
+
+
+    def execute(self):
+        raise NotImplementedError()
+
+    def _execute(self, *args, **kwargs):
+        self.patch.off()
+        try:
+            return self.execute(*args, **kwargs)
+        finally:
+            self.patch.on()
+
+    @property
+    def function(self):
+        return partial(self.__class__._execute, self=self)
+
+
+class ReplacementWrapper(Wrapper):
+    def _execute(self, *args, **kwargs):
+        rv = self.wrapper_func(*args, **kwargs)
+        ReplacementFunctionExecuted.emit(self, args, kwargs, rv)
+        return rv
+
+
+class InsertionWrapper(Wrapper):
+    def _execute(self, *args, **kwargs):
+        rv = self.wrapper_func(*args, **kwargs)
+        ReplacementFunctionExecuted.emit(self, args, kwargs, rv)
+        return rv
+
+
 class Patch:
 
-    def __init__(self, parent, attribute,
+    parent = None
+
+    def __init__(self, func, parent=None, wrapper_type=ReplacementWrapper,
                  replacement=None, hook=None,
                  insert=False, # to be able to create a patch that adds
                                # new attribute you should pass insert=True
@@ -63,33 +104,9 @@ class Patch:
         return getattr(self.parent, self.attribute) != self.original
 
 
-class Wrapper:
 
-    def __init__(self, patch, wrapped, replacement=None, hook=None):
-        self.patch = patch
-        self.wrapped = wrapped
-        assert not (hook and replacement), ("You can define either "
-                                            "hook or replacement")
-        self.hook = hook
-        self.replacement = replacement
 
-    #def __str__(self):
-    #    1
 
-    def __call__(self, *args, **kwargs):
-        self.patch.off()
-        try:
-            if self.replacement:
-                rv = self.replacement(*args, **kwargs)
-                ReplacementFunctionExecuted.emit(self, args, kwargs, rv)
-            else:
-                rv = self.wrapped(*args, **kwargs)
-                OriginalFunctionExecuted.emit(self, args, kwargs, rv)
-            if self.hook:
-                self.hook(*args, return_value=rv, **kwargs)
-            return rv
-        finally:
-            self.patch.on()
 
 #class ConditionalPatch(Patch):
 #
