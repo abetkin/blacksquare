@@ -5,7 +5,7 @@ class Patches:
     # context mgr that lets to add patches
 
     def __init__(self, *patches):
-        self.patches = patches
+        self.patches = tuple(patches)
 
     #@classmethod
     #def add_patches(cls, *patches)

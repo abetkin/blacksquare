@@ -30,3 +30,15 @@ class patch(type):
 #
 #def meta(patch_class):
 #    1
+
+'''
+
+class ReplaceClass(Patch):
+
+    parent = Parent
+
+    @patch('name')
+    def m(self):
+       1
+
+'''
