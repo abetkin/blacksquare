@@ -51,13 +51,15 @@ class LoggableEvent(Event):
 
     @classmethod
     def get_handlers(cls):
-        return (cls.handle, cls._log)
+        return (cls._log, cls.handle)
 
     def _log(self):
-        Logger.instance().append(self)
+        logger = Logger.instance()
+        self.index = len(logger)
+        logger.append(self)
 
     def handle(self):
-        'You would want to implement this.'
+        'You can implement this.'
 
     def __str__(self):
         # normally should be changed

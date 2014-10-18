@@ -1,2 +1,1 @@
-from .base import Patch, SimpleConditionalPatch #FIXME
-from .classdef import patch
+from .base import Patch, patch, SimpleConditionalPatch #FIXME

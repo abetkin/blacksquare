@@ -2,28 +2,24 @@ from ..core.events import Event
 from .. import get_config
 
 
-class PatchesEnter(Event):
+class PatchSuiteStart(Event):
     
     @classmethod
-    def handle(cls, patches, manager):
+    def handle(cls, suite):
         ctrl = get_config().get_controller_class().instance()
-        ctrl.add_patches(patches, manager)
+        ctrl.suite_start(suite)
 
 
-class PatchesExit(Event):
+class PatchSuiteFinish(Event):
 
     @classmethod
-    def handle(cls, manager):
+    def handle(cls, suite):
         ctrl = get_config().get_controller_class().instance()
-        ctrl.manager_exit(manager)
+        ctrl.suite_finish(suite)
 
 
 class ContextChange(Event):
 
     @classmethod
     def handle(cls, name):
-        '''
-        ctrl = get_config().get_controller_class().instance()
-        ctrl.remove_dependency(name)
-        '''
-
+        'Nothing yet.'

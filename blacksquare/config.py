@@ -7,6 +7,7 @@ class Config(ThreadLocalMixin):
     def __init__(self):
         # maybe read from somewhere
         self._event_handlers = {}
+        self.breakpoints = set()
 
     def get_event_handlers(self, event_cls):
         return self._event_handlers.get(event_cls, ())
@@ -19,12 +20,16 @@ class Config(ThreadLocalMixin):
         handlers.remove(handler)
 
     def get_controller_class(self):
-        from blacksquare.manage.handlers import ManagersStack, GlobalPatches
+        from blacksquare.manage.handlers import PatchSuitesStack, GlobalPatches
         return GlobalPatches
 
-    use_ipython = True
+    def set_breakpoint(self, index):
+        self.breakpoints.add(index)
 
-    test_interactive = False
+    debugger = 'ipdb'
+    fake_interactive_shell = None
+
+
 
     def is_set_bp_for(self, wrapper):
         return False

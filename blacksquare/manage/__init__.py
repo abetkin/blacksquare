@@ -1,1 +1,1 @@
-from .base import Patches
+from .base import PatchSuite

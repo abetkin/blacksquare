@@ -1,4 +1,7 @@
 import inspect
+import sys
+import pdb
+
 
 from ..core.events import LoggableEvent
 from .. import get_config, get_context
@@ -6,49 +9,59 @@ from .. import get_config, get_context
 
 class FunctionExecuted(LoggableEvent):
 
-    def __init__(self, wrapper, args, kwargs, rv):
+    def __init__(self, wrapper, args, kwargs, ret):
         self.wrapper = wrapper
-        sig = inspect.signature(wrapper)
+        sig = inspect.signature(wrapper._execute)
         self.call_args = sig.bind(*args, **kwargs)
-        self.rv = rv
+        self.rv = ret
 
-    #TODO: if breakpoint or error
-    def embed_shell_if_breakpoint(self):
+    def stop_on_breakpoint(self):
         config = get_config()
-        ctx = get_context()
-        if config.is_set_bp_for(self.wrapper):
-            if config.test_interactive:
-                config.test_interactive(ctx)
-                return
+        if config.debugger == 'ipdb':
             try:
-                assert config.use_ipython
-                import IPython
-                IPython.embed()
-            except (ImportError, AssertionError):
-                import code
-                code.interact(local={'ctx': ctx})
+                import ipdb
+                set_trace = ipdb.set_trace
+            except:
+                set_trace = pdb.set_trace
+        else:
+            set_trace = pdb.set_trace
+        frame = sys._getframe()
+
+        for _ in range(4):
+            frame = frame.f_back
+
+        if not config.fake_interactive_shell:
+            set_trace(frame)
+        else:
+            config.fake_interactive_shell(frame.f_locals, frame.f_globals)
+
 
     def handle(self):
-        #
-        self.embed_shell_if_breakpoint()
+        #TODO: auto stop on error
+        if self.index in get_config().breakpoints:
+            self.stop_on_breakpoint()
 
     def __str__(self):
-        if self.wrapper.replacement:
-            record_format = (
-                "Call to {wrapper.wrapped.__name__} ( => "
-                "{wrapper.patch._replacement_func.__name__})")
-        else:
-            record_format = (
-                "Call to {wrapper.wrapped.__name__} ( + "
-                "{wrapper.patch._hook_func.__name__})")
         from ..util import obj_formatter
-        return obj_formatter.format(record_format, self)
+        return obj_formatter.format(self.record_format, self)
 
 
 
 class ReplacementFunctionExecuted(FunctionExecuted):
-    pass
 
-class OriginalFunctionExecuted(FunctionExecuted):
-    pass
+    record_format = (
+        "Call to {wrapper.wrapped_func.__name__} ( => "
+        "{wrapper.wrapper_func.__name__})")
+
+class HookFunctionExecuted(FunctionExecuted):
+
+    def __init__(self, wrapper, args, kwargs, ret):
+        self.wrapper = wrapper
+        sig = inspect.signature(wrapper.callable)
+        self.call_args = sig.bind(*args, return_value=ret, **kwargs)
+        self.rv = ret
+
+    record_format = (
+        "Call to {wrapper.wrapped.__name__} ( + "
+        "{wrapper.wrapper_func.__name__})")
 
