@@ -6,11 +6,10 @@ import logging
 from blacksquare.config import Config as BaseConfig
 from blacksquare.core.events import Event
 
-from blacksquare.patch import Patch, patch, SimpleConditionalPatch
-from blacksquare.patch.base import InsertionWrapper, HookWrapper
-from blacksquare.manage import PatchSuite
-from blacksquare.manage.handlers import PatchSuitesStack, GlobalPatches
-from blacksquare.manage.events import PatchSuiteStart, PatchSuiteFinish
+from blacksquare.patching import Patch, patch, SimpleConditionalPatch
+from blacksquare.patching.base import InsertionWrapper, HookWrapper, PatchSuite
+from blacksquare.patching.handlers import PatchSuitesStack, GlobalPatches
+from blacksquare.patching.events import PatchSuiteStart, PatchSuiteFinish
 from blacksquare import get_config, get_context
 from blacksquare.util import import_obj
 
@@ -237,8 +236,6 @@ class TestConditionalPatches(unittest.TestCase):
 
     def setUp(self):
         self._patches = PatchedPrinter.make_patches() + PatchedGenerator.make_patches()
-        #import pdb; pdb.set_trace()
-
         PatchSuiteStart.handle(self._patches)
 
     def runTest(self):
@@ -253,3 +250,7 @@ class TestConditionalPatches(unittest.TestCase):
 
     def tearDown(self):
         PatchSuiteFinish.handle(self._patches)
+
+##
+
+# TODO: add tests for multiple threads

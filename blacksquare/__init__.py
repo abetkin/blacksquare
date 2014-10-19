@@ -1,7 +1,7 @@
 
 
 def get_context():
-    from .manage.context import ContextTree
+    from .context import ContextTree
     return ContextTree.instance()
 
 def get_config():

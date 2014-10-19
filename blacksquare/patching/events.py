@@ -3,7 +3,7 @@ import sys
 import pdb
 
 
-from ..core.events import LoggableEvent
+from ..core.events import Event, LoggableEvent
 from .. import get_config, get_context
 
 
@@ -26,7 +26,6 @@ class FunctionExecuted(LoggableEvent):
         else:
             set_trace = pdb.set_trace
         frame = sys._getframe()
-
         for _ in range(4):
             frame = frame.f_back
 
@@ -65,3 +64,25 @@ class HookFunctionExecuted(FunctionExecuted):
         "Call to {wrapper.wrapped.__name__} ( + "
         "{wrapper.wrapper_func.__name__})")
 
+
+class PatchSuiteStart(Event):
+
+    @classmethod
+    def handle(cls, suite):
+        ctrl = get_config().get_controller_class().instance()
+        ctrl.suite_start(suite)
+
+
+class PatchSuiteFinish(Event):
+
+    @classmethod
+    def handle(cls, suite):
+        ctrl = get_config().get_controller_class().instance()
+        ctrl.suite_finish(suite)
+
+
+class ContextChange(Event):
+
+    @classmethod
+    def handle(cls, name):
+        'Nothing yet.'

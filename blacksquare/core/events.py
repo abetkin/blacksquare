@@ -5,7 +5,6 @@ from .threadlocal import ThreadLocalMixin
 
 
 class Event:
-    #TODO: add thread locks for handling
 
     @classmethod
     def get_handlers(cls):

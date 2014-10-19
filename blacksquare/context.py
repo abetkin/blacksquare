@@ -1,7 +1,7 @@
 from functools import reduce
 
-from ..core.threadlocal import ThreadLocalMixin
-from .events import ContextChange
+from .core.threadlocal import ThreadLocalMixin
+from .patching.events import ContextChange
 
 class DictAndObject(dict):
     def __init__(self, *args, **kw):
