@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
+import collections
 
-import inspect
-import string
+from IPython.lib import pretty
 
 def import_module(name):
     '''
@@ -27,29 +27,34 @@ def import_obj(name):
     return parent, part, obj
 
 
+class _defaultdict(collections.defaultdict):
+    def __contains__(self, elt):
+        return True
 
-class ObjectFormatter(string.Formatter):
-    '''
-    Usage:
-        formatter.format("Here is {my.nested.attribute}", obj)
+class ObjectLookupPrinter(pretty.RepresentationPrinter):
+    # falling back to _repr_pretty_
 
-    Attribute look-up understands dictionary keys and object attributes.
-    '''
+    lookup_attribute='_repr_pretty'
 
-    def get_value(self, key, args, kwds):
-        if not isinstance(key, str):
-            return string.Formatter.get_value(key, args, kwds)
-        # this should be the context object
-        value = args[0]
+    def printer(self, obj, p, cycle):
+        for cls in obj.__class__.__mro__:
+            if self.lookup_attribute in cls.__dict__:
+                meth = getattr(cls, self.lookup_attribute)
+                if callable(meth):
+                    return meth(obj, p, cycle)
 
-        for attr in key.split('.'):
-            try:
-                value = getattr(value, attr)
-            except AttributeError as exc:
-                try:
-                    return value[attr]
-                except (KeyError, TypeError):
-                    raise exc
-        return value
+    def __init__(self, *a, **kw):
+        kw.pop('type_pprinters', None)
+        type_pprinters = _defaultdict(lambda: self.printer)
+        super().__init__(*a, type_pprinters=type_pprinters, **kw)
 
-obj_formatter = ObjectFormatter()
+
+def pretty_custom(obj, printer_class=pretty.RepresentationPrinter,
+                  verbose=False, max_width=79, newline='\n'):
+    stream = pretty.StringIO()
+    printer = printer_class(stream, verbose, max_width, newline)
+    printer.pretty(obj)
+    printer.flush()
+    return stream.getvalue()
+
+

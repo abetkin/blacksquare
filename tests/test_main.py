@@ -3,7 +3,7 @@ import unittest
 import random
 import logging
 
-from blacksquare.config import Config as BaseConfig
+from blacksquare import Config as BaseConfig
 from blacksquare.core.events import Event
 
 from blacksquare.patching import Patch, patch, SimpleConditionalPatch
@@ -13,7 +13,7 @@ from blacksquare.patching.events import PatchSuiteStart, PatchSuiteFinish
 from blacksquare import get_config, get_context
 from blacksquare.util import import_obj
 
-from blacksquare.core.events import Logger
+from blacksquare.core.objects import Logger
 
 class Calculator:
 
@@ -134,7 +134,7 @@ class TestFormat(TestCase):
             self.assertEqual( calc.add(2, 3), -1)
 
         out = str(Logger.instance())
-        self.assertEqual(out, 'Call to add ( => replace_add)')
+        self.assertEqual(out, 'Logged events:\n0| Call to add ( => replace_add)')
 
     def tearDown(self):
         self.assertEqual(Calculator.add, Calculator_add)
@@ -254,3 +254,5 @@ class TestConditionalPatches(unittest.TestCase):
 ##
 
 # TODO: add tests for multiple threads
+
+# TODO: replace class callable

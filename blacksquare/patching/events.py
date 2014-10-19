@@ -12,7 +12,7 @@ class FunctionExecuted(LoggableEvent):
     def __init__(self, wrapper, args, kwargs, ret):
         self.wrapper = wrapper
         sig = inspect.signature(wrapper._execute)
-        self.call_args = sig.bind(*args, **kwargs)
+        self.call_args = sig.bind(*args, **kwargs).arguments
         self.rv = ret
 
     def stop_on_breakpoint(self):
@@ -36,33 +36,59 @@ class FunctionExecuted(LoggableEvent):
 
 
     def handle(self):
-        #TODO: auto stop on error
         if self.index in get_config().breakpoints:
             self.stop_on_breakpoint()
+        # auto stop on error ?
 
-    def __str__(self):
-        from ..util import obj_formatter
-        return obj_formatter.format(self.record_format, self)
+    def _repr_pretty_(self, p, cycle):
+        if cycle:
+            p.text('Call(...)')
+            return
+        with p.group(5, 'Call(', ')'):
+            #TODO function name
+            for attr, value in self.call_args.items():
+                p.text('%s = %s,' % (attr, value))
+                p.breakable()
+            p.text('rv = %s,' % (attr, self.rv))
+
 
 
 
 class ReplacementFunctionExecuted(FunctionExecuted):
 
-    record_format = (
-        "Call to {wrapper.wrapped_func.__name__} ( => "
-        "{wrapper.wrapper_func.__name__})")
+    def _log_pretty_(self, p, cycle):
+        if cycle:
+            p.text('FunctionCall(...)')
+            return
+        p.text('Call to ')
+        p.text(self.wrapper.wrapped_func.__name__)
+        with p.group(2, '', ''):
+            p.breakable()
+            p.text('( => ')
+            p.text(self.wrapper.wrapper_func.__name__)
+            p.text(')')
+
 
 class HookFunctionExecuted(FunctionExecuted):
 
     def __init__(self, wrapper, args, kwargs, ret):
         self.wrapper = wrapper
         sig = inspect.signature(wrapper.callable)
-        self.call_args = sig.bind(*args, return_value=ret, **kwargs)
+        self.call_args = sig.bind(*args, return_value=ret, **kwargs).arguments
+        # FIXME: make it track wrapper chains correctly
         self.rv = ret
 
-    record_format = (
-        "Call to {wrapper.wrapped.__name__} ( + "
-        "{wrapper.wrapper_func.__name__})")
+    def _log_pretty_(self, p, cycle):
+        if cycle:
+            p.text('FunctionCall(...)')
+            return
+        p.text('Call to ')
+        p.text(self.wrapper.wrapped_func.__name__)
+        with p.group(2, '', ''):
+            p.breakable()
+            p.text('( + ')
+            p.text(self.wrapper.wrapper_func.__name__)
+            p.text(')')
 
 
 class PatchSuiteStart(Event):

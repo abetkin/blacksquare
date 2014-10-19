@@ -1,8 +1,8 @@
-import os
-
 from .. import get_config
 from .threadlocal import ThreadLocalMixin
+from .objects import Logger
 
+from IPython.lib import pretty
 
 class Event:
 
@@ -29,14 +29,6 @@ class Event:
     def handle(cls, *args, **kw):
         pass
 
-class Logger(ThreadLocalMixin, list):
-    global_name = 'logger'
-
-    def __str__(self):
-        return os.linesep.join(str(record) for record in self)
-
-    __repr__ = __str__
-
 
 class LoggableEvent(Event):
 
@@ -60,11 +52,15 @@ class LoggableEvent(Event):
     def handle(self):
         'You can implement this.'
 
-    def __str__(self):
-        # normally should be changed
-        return ''.join((
-            self.__class__.__name__,
-            '(',
-            ', '.join(("%s=%s" % item) for item in self.__dict__.items()),
-            ')'
-        ))
+    def __repr__(self):
+        return pretty.pretty(self)
+
+    def _repr_pretty_(self, p, cycle):
+        if cycle:
+            p.text('Event(...)')
+            return
+        with p.group(6, 'Event(', ')'):
+            for idx, (attr, value) in enumerate(self.__dict__.items()):
+                p.text('%s = %s,' % (attr, value))
+                if idx + 1 != len(self.__dict__):
+                    p.breakable()

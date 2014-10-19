@@ -1,4 +1,4 @@
-from functools import wraps, partial
+from functools import wraps, partial, update_wrapper
 from types import MethodType
 from .events import ReplacementFunctionExecuted, HookFunctionExecuted
 
@@ -11,30 +11,45 @@ class Wrapper:
         self.patch = patch
         self.wrapper_func = wrapper_func
 
-        self.wrapped_func = wrapped
-        self.__self__ = None
-        if hasattr(wrapped, '__self__'):
-            self.wrapped_func =  wrapped.__func__
-            self.__self__ = wrapped.__self__
+        self.wrapped_func = self._unbind(wrapped)
         # TODO: properties ?
 
-        self.callable  = self._make_callable()
+        self._execute = self.build()
+        self.callable = self._bind(self._execute) # make it 1 attribute
+        #if self.wrapped_func:
+        #    update_wrapper(self.__class__._execute,
+        #                   self.wrapped_func)
 
     def execute(self, *args, **kwargs):
         return self.wrapper_func(*args, **kwargs)
 
-    def _execute(self, *args, **kwargs):
-        self.patch.off()
-        try:
-            return self.execute(*args, **kwargs)
-        finally:
-            self.patch.on()
+    #def _execute(self, *args, **kwargs):
+    #    self.patch.off()
+    #    try:
+    #        return self.execute(*args, **kwargs)
+    #    finally:
+    #        self.patch.on()
 
-    def _make_callable(self):
-        @wraps(self.wrapper_func)
+    def build(self):
+        '''Build the wrapper function.'''
+        @wraps(self.wrapper_func) # or wrapped func?
         def func(*args, **kwargs):
-            return self._execute(*args, **kwargs)
+            self.patch.off()
+            try:
+                return self.execute(*args, **kwargs)
+            finally:
+                self.patch.on()
+        return func
 
+    def _unbind(self, callabl):
+        func = callabl
+        self.__self__ = None
+        if hasattr(callabl, '__self__'):
+            func =  callabl.__func__
+            self.__self__ = callabl.__self__
+        return func
+
+    def _bind(self, func):
         if isinstance(self.__self__, type):
             func = classmethod(func)
         elif self.__self__:
