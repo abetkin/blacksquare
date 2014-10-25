@@ -32,7 +32,7 @@ class Wrapper:
 
     def build(self):
         '''Build the wrapper function.'''
-        @wraps(self.wrapper_func) # or wrapped func?
+        @wraps(self.wrapped_func or self.wrapper_func)
         def func(*args, **kwargs):
             self.patch.off()
             try:
@@ -58,6 +58,7 @@ class Wrapper:
 
 
 class ReplacementWrapper(Wrapper):
+
     def execute(self, *args, **kwargs):
         ret = self.wrapper_func(*args, **kwargs)
         ReplacementFunctionExecuted.emit(self, args, kwargs, ret)
@@ -69,9 +70,14 @@ class InsertionWrapper(Wrapper):
 
 
 class HookWrapper(Wrapper):
+
+    def __init__(self, patch, wrapper_func=None, wrapped=None):
+        super().__init__(patch, wrapper_func, wrapped)
+
     def execute(self, *args, **kwargs):
         ret = self.wrapped_func(*args, **kwargs)
-        self.wrapper_func(*args, return_value=ret, **kwargs)
+        if self.wrapper_func:
+            self.wrapper_func(*args, return_value=ret, **kwargs)
         HookFunctionExecuted.emit(self, args, kwargs, ret)
         return ret
 
@@ -116,13 +122,13 @@ class PatchSuite:
         if exc_info[0]: # postmortem debug?
             raise
 
-
-def patch(**kwargs):
+# TODO: make kwargs set attributes on wrapper
+class patch(dict):
     '''Mark function as a patch.'''
-    def wrap(f):
-        f.patch_kwargs = kwargs
+
+    def __call__(self, f):
+        f.patch_kwargs = self
         return f
-    return wrap
 
 
 class Patch:
@@ -130,7 +136,8 @@ class Patch:
     parent = None
     wrapper_type = ReplacementWrapper
 
-    def __init__(self, attribute, wrapper_func, parent=None,
+    #swap wrapper_func with parent
+    def __init__(self, attribute, wrapper_func=None, parent=None,
                  wrapper_type=None):
         if parent:
             self.parent = parent
@@ -161,11 +168,16 @@ class Patch:
 
     @classmethod
     def _make_patches(cls):
-        for name, func in cls.__dict__.items():
-            if not hasattr(func, 'patch_kwargs'):
+        for name, val in cls.__dict__.items():
+            patch_kwargs = {'attribute': name}
+            if isinstance(val, patch):
+                patch_kwargs.update(wrapper_type=HookWrapper)
+                patch_kwargs.update(val)
+            elif callable(val) and hasattr(val, 'patch_kwargs'):
+                patch_kwargs.update(wrapper_func=val)
+                patch_kwargs.update(val.patch_kwargs)
+            else:
                 continue
-            patch_kwargs = {'attribute': name, 'wrapper_func': func}
-            patch_kwargs.update(func.patch_kwargs)
             yield cls(**patch_kwargs)
 
     @classmethod

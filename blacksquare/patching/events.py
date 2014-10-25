@@ -6,6 +6,8 @@ import pdb
 from ..core.events import Event, LoggableEvent
 from .. import get_config, get_context
 
+from IPython.lib.pretty import pretty
+
 
 class FunctionExecuted(LoggableEvent):
 
@@ -40,6 +42,17 @@ class FunctionExecuted(LoggableEvent):
             self.stop_on_breakpoint()
         # auto stop on error ?
 
+    #FIXME
+    def __dir__(self):
+        names = super().__dir__()
+        names.extend(self.call_args.keys())
+        return names
+
+    def __getattr__(self, name):
+        if name in self.call_args:
+            return self.call_args[name]
+        raise AttributeError(name)
+
     def _repr_pretty_(self, p, cycle):
         if cycle:
             p.text('Call(...)')
@@ -49,7 +62,7 @@ class FunctionExecuted(LoggableEvent):
             for attr, value in self.call_args.items():
                 p.text('%s = %s,' % (attr, value))
                 p.breakable()
-            p.text('rv = %s,' % (attr, self.rv))
+            p.text('rv = %s' % self.rv)
 
 
 
@@ -73,22 +86,19 @@ class HookFunctionExecuted(FunctionExecuted):
 
     def __init__(self, wrapper, args, kwargs, ret):
         self.wrapper = wrapper
-        sig = inspect.signature(wrapper.callable)
-        self.call_args = sig.bind(*args, return_value=ret, **kwargs).arguments
-        # FIXME: make it track wrapper chains correctly
+        sig = inspect.signature(wrapper._execute)
+        self.call_args = sig.bind(*args, **kwargs).arguments
         self.rv = ret
 
+    #TODO: let override this function
     def _log_pretty_(self, p, cycle):
         if cycle:
-            p.text('FunctionCall(...)')
+            p.text('HookFunction(..)')
             return
-        p.text('Call to ')
-        p.text(self.wrapper.wrapped_func.__name__)
-        with p.group(2, '', ''):
-            p.breakable()
-            p.text('( + ')
-            p.text(self.wrapper.wrapper_func.__name__)
-            p.text(')')
+        p.text(self.wrapper.wrapped_func.__name__) #(a=1,b=..)
+        p.text(' returned')
+        p.breakable()
+        p.text( pretty(self.rv))
 
 
 class PatchSuiteStart(Event):

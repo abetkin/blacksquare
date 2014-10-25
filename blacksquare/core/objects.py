@@ -88,5 +88,8 @@ class Logger(ThreadLocalMixin, list):
                 if idx != len(self) - 1:
                     p.break_()
 
-    __repr__ = lambda self: logpretty(self)
+    #def _repr_pretty_(self, p, cycle):
+    #    p.text( logpretty(self))
+
+    __repr__ = lambda self:  logpretty(self)
 

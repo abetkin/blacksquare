@@ -17,7 +17,7 @@ class BlackMagics(Magics):
     def events(self, line):
         logger = Logger.instance()
         if not line:
-            return str(logger)
+            return logger
 
         event = logger[int(line)]
         return event
