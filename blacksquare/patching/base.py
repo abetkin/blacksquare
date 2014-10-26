@@ -5,6 +5,9 @@ from .events import ReplacementFunctionExecuted, HookFunctionExecuted
 from .. import get_config, get_context
 from .events import ContextChange
 
+#TODO test _bind to instance
+
+#mixin?
 class Wrapper:
 
     def __init__(self, patch, wrapper_func, wrapped=None):
@@ -16,23 +19,15 @@ class Wrapper:
 
         self._execute = self.build()
         self.callable = self._bind(self._execute) # make it 1 attribute
-        #if self.wrapped_func:
-        #    update_wrapper(self.__class__._execute,
-        #                   self.wrapped_func)
 
     def execute(self, *args, **kwargs):
         return self.wrapper_func(*args, **kwargs)
 
-    #def _execute(self, *args, **kwargs):
-    #    self.patch.off()
-    #    try:
-    #        return self.execute(*args, **kwargs)
-    #    finally:
-    #        self.patch.on()
 
+    # property: wrapper
     def build(self):
         '''Build the wrapper function.'''
-        @wraps(self.wrapped_func or self.wrapper_func)
+        @wraps(self.wrapped_func or self.wrapper_func) # -> _exe
         def func(*args, **kwargs):
             self.patch.off()
             try:
@@ -55,6 +50,10 @@ class Wrapper:
         elif self.__self__:
             func = MethodType(func, self.__self__)
         return func
+
+    @property
+    def instance(self):
+        1
 
 
 class ReplacementWrapper(Wrapper):
@@ -129,6 +128,8 @@ class patch(dict):
     def __call__(self, f):
         f.patch_kwargs = self
         return f
+
+    # as context
 
 
 class Patch:

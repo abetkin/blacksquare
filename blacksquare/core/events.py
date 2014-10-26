@@ -1,6 +1,5 @@
-from .. import get_config
+from .. import get_config, get_logger
 from .threadlocal import ThreadLocalMixin
-from .objects import Logger
 
 from IPython.lib import pretty
 
@@ -12,7 +11,8 @@ class Event:
 
     @classmethod
     def _get_handlers(cls):
-        handlers = get_config().get_event_handlers(cls)
+        handlers = get_config().get_event_handlers(cls) # maybe for each patch
+                                                        # separately ?
         if not handlers:
             handlers = cls.get_handlers()
         return handlers
@@ -45,9 +45,16 @@ class LoggableEvent(Event):
         return (cls._log, cls.handle)
 
     def _log(self):
-        logger = Logger.instance()
-        self.index = len(logger)
-        logger.append(self)
+        logger = get_logger()
+        logger.record()
+        #log_prefix
+
+    @property
+    def index(self):
+        try:
+            return get_logger().index(self)
+        except ValueError:
+            return None
 
     def handle(self):
         'You can implement this.'

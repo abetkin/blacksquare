@@ -71,25 +71,56 @@ class LogPrinter(ObjectLookupPrinter):
 
 logpretty = partial(pretty_custom, printer_class=LogPrinter)
 
-class Logger(ThreadLocalMixin, list):
+class Logger(ThreadLocalMixin):
     global_name = 'logger'
+
+    def __init__(self):
+        self._list = []
+
+    def __iter__(self):
+        return iter(self._list)
+
+    #def __nonzero__(self):
+    #    return bool(self._list)
+
+    def __len__(self):
+        return len(self._list)
+
+    def __contains__(self, item):
+        return item in self._list
+
+    def __getattr__(self, attr):
+        return getattr(self._list, attr)
 
     def _log_pretty_(self, p, cycle):
         if cycle:
             p.text('Logger(...)')
             return
         p.text('Logged events:')
-        if self:
-            p.break_()
         with p.group():
-            for idx, item in enumerate(self):
-                p.text('%d| ' % idx)
-                p.pretty(item)
-                if idx != len(self) - 1:
-                    p.break_()
+            for idx, line in enumerate(self):
+                p.break_()
+                start = '%d|' % idx
+                with p.group(len(start), start):
+                    for item in line:
+                        p.breakable()
+                        p.text( logpretty(item))
 
     #def _repr_pretty_(self, p, cycle):
     #    p.text( logpretty(self))
+
+    def append(self, obj):
+        '''Append obj to current record.'''
+        assert len(self), "Empty log"
+        self[-1].append(obj)
+
+    def record(self, obj=None):
+        '''Make new record and append obj (if any) to it.'''
+        line = []
+        if obj:
+            line.append(obj)
+        self._list.append(line)
+
 
     __repr__ = lambda self:  logpretty(self)
 
