@@ -57,4 +57,34 @@ def pretty_custom(obj, printer_class=pretty.RepresentationPrinter,
     printer.flush()
     return stream.getvalue()
 
+class DotAccessDict(dict):
+    def __getattr__(self, attr):
+        try:
+            return self[attr]
+        except KeyError:
+            raise AttributeError(attr)
 
+
+class ParentContextMixin:
+
+    PARENT_CONTEXT_ATTRIBUTE = '_parent_'
+    GET_CONTEXT_METHOD = 'get_context'
+
+    def _objects(self):
+        obj = self
+        while obj is not None:
+            obj = getattr(obj, self.PARENT_CONTEXT_ATTRIBUTE, None)
+            if hasattr(obj, self.GET_CONTEXT_METHOD):
+                yield obj
+
+    @property
+    def context(self):
+        ret = DotAccessDict()
+        objects = list(self._objects())
+        for obj in reversed(objects):
+            get_context = getattr(obj, self.GET_CONTEXT_METHOD)
+            ret.update(get_context())
+        return ret
+
+class ContextDict(dict):
+    get_context = dict.items

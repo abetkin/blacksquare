@@ -3,6 +3,7 @@ from types import MethodType
 from .events import ReplacementFunctionExecuted, HookFunctionExecuted
 
 from .. import get_config, get_context
+from ..util import ParentContextMixin, DotAccessDict
 from .events import ContextChange
 
 #TODO test _bind to instance
@@ -126,32 +127,74 @@ class patch(dict):
     '''Mark function as a patch.'''
 
     def __call__(self, f):
-        f.patch_kwargs = self
+        f._obj = self
         return f
 
-    # as context
+    def get_context(self):
+        import ipdb; ipdb.set_trace()
+
+        return {key: self[key] for key in self
+                if key not in ('attribute', 'parent', 'replacement')}
+
+def default_replacement(ctx, *args, **kwargs):
+    ret = ctx.wrapper_func(*args, **kwargs)
+    ReplacementFunctionExecuted.emit(ctx.wrapper_func, args, kwargs, ret)
+    return ret
 
 
-class Patch:
+class Patch(ParentContextMixin):
 
     parent = None
-    wrapper_type = ReplacementWrapper
+    #wrapper_type = ReplacementWrapper
 
-    #swap wrapper_func with parent
-    def __init__(self, attribute, wrapper_func=None, parent=None,
-                 wrapper_type=None):
+    def __init__(self, attribute, parent=None,
+                 replacement=default_replacement, **kwargs):
         if parent:
             self.parent = parent
         assert self.parent is not None, "parent can't be None"
         self.attribute = attribute
         self.original = getattr(self.parent, self.attribute, None)
+        #
+        #wrapper_type = wrapper_type or self.wrapper_type
+        #self._wrapper = wrapper_type(self, wrapper_func=wrapper_func,
+        #                             wrapped=self.original)
+        self.wrapper = partial(replacement, self.context)
 
-        wrapper_type = wrapper_type or self.wrapper_type
-        self._wrapper = wrapper_type(self, wrapper_func=wrapper_func,
-                                     wrapped=self.original)
+        self._kwargs = kwargs
+
+    def get_context(self):
+        return self._kwargs # usually {}
+
+    @property
+    def wrapper(self):
+        return self._wrapper
+
+    #def _signature_f(self):1
+
+    @wrapper.setter
+    def wrapper(self, function):
+        context = self.context
+
+        __self__ = getattr(function, '__self__', None)
+        if __self__:
+            function = function.__func__
+
+        @wraps(context.get('wrapped_func') or context.wrapper_func)
+        def func(*args, **kwargs):
+            self.off()
+            try:
+                return function(*args, **kwargs)
+            finally:
+                self.on()
+
+        if isinstance(__self__, type):
+            func = classmethod(func)
+        elif __self__:
+            func = MethodType(func, self.__self__)
+        self._wrapper = func
 
     def on(self):
-        setattr(self.parent, self.attribute, self.replacement)
+        setattr(self.parent, self.attribute, self.wrapper)
 
     def off(self):
         if self.original:
@@ -160,26 +203,22 @@ class Patch:
             delattr(self.parent, self.attribute)
 
     @property
-    def replacement(self):
-        return self._wrapper.callable
-
-    @property
     def is_on(self):
         return getattr(self.parent, self.attribute) != self.original
 
     @classmethod
     def _make_patches(cls):
-        for name, val in cls.__dict__.items():
-            patch_kwargs = {'attribute': name}
-            if isinstance(val, patch):
-                patch_kwargs.update(wrapper_type=HookWrapper)
-                patch_kwargs.update(val)
-            elif callable(val) and hasattr(val, 'patch_kwargs'):
-                patch_kwargs.update(wrapper_func=val)
-                patch_kwargs.update(val.patch_kwargs)
-            else:
+        for name, value in cls.__dict__.items():
+            if callable(value) and hasattr(value, '_obj'):
+                value._obj.update(wrapper_func=value)
+                value = value._obj
+            if not isinstance(value, patch):
                 continue
-            yield cls(**patch_kwargs)
+            kwargs = {name: value[name] for name in value
+                      if name in ('attribute', 'parent', 'replacement')}
+            obj = cls(**kwargs)
+            obj._parent_ = value
+            yield obj
 
     @classmethod
     def make_patches(cls):
