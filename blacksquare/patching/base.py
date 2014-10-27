@@ -8,79 +8,6 @@ from .events import ContextChange
 
 #TODO test _bind to instance
 
-#mixin?
-class Wrapper:
-
-    def __init__(self, patch, wrapper_func, wrapped=None):
-        self.patch = patch
-        self.wrapper_func = wrapper_func
-
-        self.wrapped_func = self._unbind(wrapped)
-        # TODO: properties ?
-
-        self._execute = self.build()
-        self.callable = self._bind(self._execute) # make it 1 attribute
-
-    def execute(self, *args, **kwargs):
-        return self.wrapper_func(*args, **kwargs)
-
-
-    # property: wrapper
-    def build(self):
-        '''Build the wrapper function.'''
-        @wraps(self.wrapped_func or self.wrapper_func) # -> _exe
-        def func(*args, **kwargs):
-            self.patch.off()
-            try:
-                return self.execute(*args, **kwargs)
-            finally:
-                self.patch.on()
-        return func
-
-    def _unbind(self, callabl):
-        func = callabl
-        self.__self__ = None
-        if hasattr(callabl, '__self__'):
-            func =  callabl.__func__
-            self.__self__ = callabl.__self__
-        return func
-
-    def _bind(self, func):
-        if isinstance(self.__self__, type):
-            func = classmethod(func)
-        elif self.__self__:
-            func = MethodType(func, self.__self__)
-        return func
-
-    @property
-    def instance(self):
-        1
-
-
-class ReplacementWrapper(Wrapper):
-
-    def execute(self, *args, **kwargs):
-        ret = self.wrapper_func(*args, **kwargs)
-        ReplacementFunctionExecuted.emit(self, args, kwargs, ret)
-        return ret
-
-
-class InsertionWrapper(Wrapper):
-    pass
-
-
-class HookWrapper(Wrapper):
-
-    def __init__(self, patch, wrapper_func=None, wrapped=None):
-        super().__init__(patch, wrapper_func, wrapped)
-
-    def execute(self, *args, **kwargs):
-        ret = self.wrapped_func(*args, **kwargs)
-        if self.wrapper_func:
-            self.wrapper_func(*args, return_value=ret, **kwargs)
-        HookFunctionExecuted.emit(self, args, kwargs, ret)
-        return ret
-
 import itertools
 from .events import PatchSuiteStart, PatchSuiteFinish
 
@@ -131,14 +58,24 @@ class patch(dict):
         return f
 
     def get_context(self):
-        import ipdb; ipdb.set_trace()
+        #import ipdb; ipdb.set_trace()
 
         return {key: self[key] for key in self
-                if key not in ('attribute', 'parent', 'replacement')}
+                if key not in ('attribute', 'parent', 'wrapper')}
 
-def default_replacement(ctx, *args, **kwargs):
+def default_wrapper(ctx, *args, **kwargs):
     ret = ctx.wrapper_func(*args, **kwargs)
     ReplacementFunctionExecuted.emit(ctx.wrapper_func, args, kwargs, ret)
+    return ret
+
+def insertion_wrapper(ctx, *args, **kwargs):
+    return ctx.wrapper_func(*args, **kwargs)
+
+def hook_wrapper(ctx, *args, **kwargs):
+    ret = ctx.wrapped_func(*args, **kwargs)
+    if ctx.wrapper_func:
+        ctx.wrapper_func(*args, return_value=ret, **kwargs)
+    HookFunctionExecuted.emit(ctx.wrapper_func, args, kwargs, ret)
     return ret
 
 
@@ -147,8 +84,8 @@ class Patch(ParentContextMixin):
     parent = None
     #wrapper_type = ReplacementWrapper
 
-    def __init__(self, attribute, parent=None,
-                 replacement=default_replacement, **kwargs):
+    def __init__(self, attribute, parent=None, wrapper=default_wrapper,
+                 **kwargs):
         if parent:
             self.parent = parent
         assert self.parent is not None, "parent can't be None"
@@ -158,9 +95,10 @@ class Patch(ParentContextMixin):
         #wrapper_type = wrapper_type or self.wrapper_type
         #self._wrapper = wrapper_type(self, wrapper_func=wrapper_func,
         #                             wrapped=self.original)
-        self.wrapper = partial(replacement, self.context)
-
         self._kwargs = kwargs
+        self.wrapper = partial(wrapper, self.context)
+
+
 
     def get_context(self):
         return self._kwargs # usually {}
@@ -215,7 +153,7 @@ class Patch(ParentContextMixin):
             if not isinstance(value, patch):
                 continue
             kwargs = {name: value[name] for name in value
-                      if name in ('attribute', 'parent', 'replacement')}
+                      if name in ('attribute', 'parent', 'wrapper')}
             obj = cls(**kwargs)
             obj._parent_ = value
             yield obj

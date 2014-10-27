@@ -73,9 +73,9 @@ class ParentContextMixin:
     def _objects(self):
         obj = self
         while obj is not None:
-            obj = getattr(obj, self.PARENT_CONTEXT_ATTRIBUTE, None)
             if hasattr(obj, self.GET_CONTEXT_METHOD):
                 yield obj
+            obj = getattr(obj, self.PARENT_CONTEXT_ATTRIBUTE, None)
 
     @property
     def context(self):

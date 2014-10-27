@@ -7,11 +7,13 @@ from blacksquare import Config as BaseConfig
 from blacksquare.core.events import Event
 
 from blacksquare.patching import Patch, patch, SimpleConditionalPatch
-from blacksquare.patching.base import InsertionWrapper, HookWrapper, PatchSuite
+from blacksquare.patching.base import (PatchSuite,default_wrapper,
+                                       insertion_wrapper,
+                                       hook_wrapper)
 from blacksquare.patching.handlers import PatchSuitesStack, GlobalPatches
 from blacksquare.patching.events import PatchSuiteStart, PatchSuiteFinish
 from blacksquare import get_config, get_context
-from blacksquare.util import import_obj
+from blacksquare.util import ContextDict
 
 from blacksquare.core.objects import Logger
 
@@ -26,7 +28,7 @@ class BrokenCalculator(Patch):
 
     parent = Calculator
 
-    @patch(wrapper_type=InsertionWrapper)
+    @patch(wrapper=insertion_wrapper)
     def error(self):
         return 0.1 * self.val
 
@@ -58,7 +60,8 @@ class Simplest(TestCase):
     def runTest(self):
         calc = Calculator()
 
-        with PatchSuite( Patch('add', replace_add, Calculator)):
+        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
+                        ):
             self.assertEqual( calc.add(2, 3), -1)
 
 
@@ -84,7 +87,8 @@ class TestGlobalPatches(TestCase):
     def runTest(self):
         calc = Calculator()
 
-        with PatchSuite( Patch('add', replace_add, Calculator)):
+        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
+                        ):
             self.assertEqual( calc.add(2, 3), -1)
             with BrokenCalculator.make_patches():
                 self.assertAlmostEqual( calc.add(2, 3), 5.5)
@@ -109,7 +113,8 @@ class TestPatchSuitesStack(TestCase):
     def runTest(self):
         calc = Calculator()
 
-        with PatchSuite( Patch('add', replace_add, Calculator)):
+        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
+                        ):
             self.assertEqual( calc.add(2, 3), -1)
             with BrokenCalculator.make_patches():
                 self.assertAlmostEqual( calc.add(2, 3), 5.5)
@@ -130,7 +135,8 @@ class TestFormat(TestCase):
     def runTest(self):
         calc = Calculator()
 
-        with PatchSuite( Patch('add', replace_add, Calculator)):
+        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
+                        ):
             self.assertEqual( calc.add(2, 3), -1)
 
         out = str(Logger.instance())
@@ -158,7 +164,8 @@ class TestEmbed(unittest.TestCase):
         get_context()['my.var'] = 'my.value'
         calc = Calculator()
 
-        with PatchSuite( Patch('add', replace_add, Calculator)):
+        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
+                        ):
             self.assertEqual( calc.add(2, 3), -1)
 
     def tearDown(self):
@@ -175,14 +182,16 @@ class HackUnittest(unittest.TestCase): # !
             get_context()['testing.test'] = test._testMethodName
             unittest.TestCase.run(test, result)
 
-        cls._hacks = PatchSuite( Patch('run', runfunc, unittest.TestCase))
+        cls._hacks = PatchSuite( Patch('run', unittest.TestCase,
+                                       wrapper_func=runfunc))
         PatchSuiteStart.handle(cls._hacks)
 
 
     def test_with_name(self):
         calc = Calculator()
 
-        with PatchSuite( Patch('add', replace_add, Calculator)):
+        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
+                        ):
             self.assertEqual( calc.add(2, 3), -1)
             self.assertEqual(get_context()['testing.test'],
                              'test_with_name')
@@ -207,7 +216,7 @@ class NumberGenerator:
 class PatchedGenerator(Patch):
     parent = NumberGenerator
 
-    @patch(wrapper_type=HookWrapper)
+    @patch(wrapper=hook_wrapper)
     def generate_number(self, return_value):
         if return_value > 1000:
             BadValue.emit(return_value)

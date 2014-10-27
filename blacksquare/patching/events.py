@@ -12,9 +12,9 @@ from IPython.lib.pretty import pretty
 class FunctionExecuted(LoggableEvent):
 
     # wrapper -> func
-    def __init__(self, wrapper, args, kwargs, ret):
-        self.wrapper = wrapper
-        sig = inspect.signature(wrapper._execute)
+    def __init__(self, function, args, kwargs, ret):
+        #self.wrapper = wrapper
+        sig = inspect.signature(function)
         self.call_args = sig.bind(*args, **kwargs).arguments
         self.rv = ret
 
