@@ -65,6 +65,7 @@ class DotAccessDict(dict):
             raise AttributeError(attr)
 
 
+#ParentLookup ?
 class ParentContextMixin:
 
     PARENT_CONTEXT_ATTRIBUTE = '_parent_'
@@ -79,6 +80,7 @@ class ParentContextMixin:
 
     @property
     def context(self):
+        #TODO do not construct, just lookup?
         ret = DotAccessDict()
         objects = list(self._objects())
         for obj in reversed(objects):

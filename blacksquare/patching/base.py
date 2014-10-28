@@ -63,9 +63,13 @@ class patch(dict):
         return {key: self[key] for key in self
                 if key not in ('attribute', 'parent', 'wrapper')}
 
+# should be class
 def default_wrapper(ctx, *args, **kwargs):
     ret = ctx.wrapper_func(*args, **kwargs)
     ReplacementFunctionExecuted.emit(ctx.wrapper_func, args, kwargs, ret)
+    event = ReplacementFunctionExecuted(args, kwargs, ret)
+    event._parent_ = self
+    event.emit()
     return ret
 
 def insertion_wrapper(ctx, *args, **kwargs):

@@ -8,13 +8,15 @@ from .. import get_config, get_context
 
 from IPython.lib.pretty import pretty
 
+from ..util import ParentContextMixin
 
-class FunctionExecuted(LoggableEvent):
+class FunctionExecuted(ParentContextMixin, LoggableEvent):
 
     # wrapper -> func
-    def __init__(self, function, args, kwargs, ret):
+    def __init__(self, args, kwargs, ret):
         #self.wrapper = wrapper
-        sig = inspect.signature(function)
+        function = self.context.get('wrapper_func') or self.context['wrapper_func']
+        sig = inspect.signature(function) # FIXME
         self.call_args = sig.bind(*args, **kwargs).arguments
         self.rv = ret
 

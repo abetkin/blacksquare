@@ -1,6 +1,7 @@
 from .. import get_config, get_logger
 from .threadlocal import ThreadLocalMixin
 
+
 from IPython.lib import pretty
 
 class Event:
@@ -9,6 +10,7 @@ class Event:
     def get_handlers(cls):
         return (cls.handle,)
 
+    #FIXME
     @classmethod
     def _get_handlers(cls):
         handlers = get_config().get_event_handlers(cls) # maybe for each patch
@@ -35,10 +37,9 @@ class LoggableEvent(Event):
     def __init__(self, **kw):
         self.__dict__.update(kw)
 
-    @classmethod
-    def emit(cls, *args, **kw):
-        event = cls(*args, **kw)
-        super(LoggableEvent, cls).emit(event)
+    def emit(self):
+        'FIXME'
+        return super(LoggableEvent, self).emit(self, *args, **kw)
 
     @classmethod
     def get_handlers(cls):
