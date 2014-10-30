@@ -64,29 +64,48 @@ class DotAccessDict(dict):
         except KeyError:
             raise AttributeError(attr)
 
-
-#ParentLookup ?
-class ParentContextMixin:
+class ParentObjectLookup:
 
     PARENT_CONTEXT_ATTRIBUTE = '_parent_'
-    GET_CONTEXT_METHOD = 'get_context'
+    PUBLISH_TO_CONTEXT = 'publish_to_context'
+
+    inject_context = False
+    #publish_to_context = ()
+
+    def __getattr__(self, attr):
+        try:
+            return super().__getattr__(attr)
+        except AttributeError as ex:
+            pass
+        if self.inject_context:
+            try:
+                return self.get_from_context(attr)
+            except AttributeError:
+                pass
+        raise ex
 
     def _objects(self):
+        # detect cycles!
         obj = self
         while obj is not None:
-            if hasattr(obj, self.GET_CONTEXT_METHOD):
+            if hasattr(obj, self.PUBLISH_TO_CONTEXT):
                 yield obj
             obj = getattr(obj, self.PARENT_CONTEXT_ATTRIBUTE, None)
 
-    @property
-    def context(self):
-        #TODO do not construct, just lookup?
-        ret = DotAccessDict()
-        objects = list(self._objects())
-        for obj in reversed(objects):
-            get_context = getattr(obj, self.GET_CONTEXT_METHOD)
-            ret.update(get_context())
-        return ret
+    def get_from_context(self, attr, *default):
+        obj = self
+        while obj is not None:
+            if attr in obj.publish_to_context:
+                return getattr(obj, attr)
+        if default == ():
+            raise AttributeError(attr)
+        return default[0]
+    #
+    #def __init__(self, *args, parent_obj=None, **kwargs):
+    #    if parent_obj:
+    #        self._parent_ = parent_obj
+    #    super(ParentObjectLookup, self).__init__(self, *args, **kwargs)
+
 
 class ContextDict(dict):
     get_context = dict.items
