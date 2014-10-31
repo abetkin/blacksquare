@@ -63,7 +63,12 @@ class patch(dict):
         return {key: self[key] for key in self
                 if key not in ('attribute', 'parent', 'wrapper')}
 
-# should be class
+
+class Wrapper:
+
+    def __init__(self):
+        1
+
 def default_wrapper(ctx, *args, **kwargs):
     ret = ctx.wrapper_func(*args, **kwargs)
     ReplacementFunctionExecuted.emit(ctx.wrapper_func, args, kwargs, ret)
@@ -88,6 +93,7 @@ class Patch(ParentContextMixin):
     parent = None
     #wrapper_type = ReplacementWrapper
 
+
     def __init__(self, attribute, parent=None, wrapper=default_wrapper,
                  **kwargs):
         if parent:
@@ -101,7 +107,6 @@ class Patch(ParentContextMixin):
         #                             wrapped=self.original)
         self._kwargs = kwargs
         self.wrapper = partial(wrapper, self.context)
-
 
 
     def get_context(self):

@@ -38,8 +38,7 @@ class LoggableEvent(Event):
         self.__dict__.update(kw)
 
     def emit(self):
-        'FIXME'
-        return super(LoggableEvent, self).emit(self, *args, **kw)
+        return super(LoggableEvent, self).emit(self)
 
     @classmethod
     def get_handlers(cls):
