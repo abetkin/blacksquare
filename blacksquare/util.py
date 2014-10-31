@@ -64,12 +64,14 @@ class DotAccessDict(dict):
         except KeyError:
             raise AttributeError(attr)
 
+class PrototypeChainCycle(Exception):
+    def __init__(self, objects):
+        message = ' -> '.join([str(obj) for obj in objects])
+        super().__init__(message)
+
+
 class ParentObjectLookup:
 
-    PARENT_CONTEXT_ATTRIBUTE = '_parent_'
-    PUBLISH_TO_CONTEXT = 'publish_to_context'
-
-    inject_context = False
     #publish_to_context = ()
 
     def __getattr__(self, attr):
@@ -77,7 +79,7 @@ class ParentObjectLookup:
             return super().__getattr__(attr)
         except AttributeError as ex:
             pass
-        if self.inject_context:
+        if self.inject_prototype_context:
             try:
                 return self.get_from_context(attr)
             except AttributeError:
@@ -85,27 +87,25 @@ class ParentObjectLookup:
         raise ex
 
     def _objects(self):
-        # detect cycles!
+        # detects cycles
+        objects = []
         obj = self
         while obj is not None:
-            if hasattr(obj, self.PUBLISH_TO_CONTEXT):
-                yield obj
-            obj = getattr(obj, self.PARENT_CONTEXT_ATTRIBUTE, None)
+            yield obj
+            obj = getattr(obj, '_proto_', None)
+            if obj in objects:
+                raise PrototypeChainCycle(objects)
 
     def get_from_context(self, attr, *default):
-        obj = self
-        while obj is not None:
+        for obj in self._objects():
             if attr in obj.publish_to_context:
                 return getattr(obj, attr)
         if default == ():
             raise AttributeError(attr)
         return default[0]
-    #
-    #def __init__(self, *args, parent_obj=None, **kwargs):
-    #    if parent_obj:
-    #        self._parent_ = parent_obj
-    #    super(ParentObjectLookup, self).__init__(self, *args, **kwargs)
 
+    def __init__(self, *args, prototype=None, **kwargs):
+        if prototype:
+            self._proto_ = prototype
+        super(ParentObjectLookup, self).__init__(self, *args, **kwargs)
 
-class ContextDict(dict):
-    get_context = dict.items
