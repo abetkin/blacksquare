@@ -3,7 +3,7 @@ from types import MethodType
 from .events import ReplacementFunctionExecuted, HookFunctionExecuted
 
 from .. import get_config, get_context
-from ..util import ParentContextMixin, DotAccessDict
+from ..util import PrototypeMixin, DotAccessDict, ContextAttribute
 from .events import ContextChange
 
 #TODO test _bind to instance
@@ -49,96 +49,104 @@ class PatchSuite:
         if exc_info[0]: # postmortem debug?
             raise
 
-# TODO: make kwargs set attributes on wrapper
-class patch(dict):
+
+class patch(DotAccessDict):
     '''Mark function as a patch.'''
 
     def __call__(self, f):
         f._obj = self
         return f
 
-    def get_context(self):
-        #import ipdb; ipdb.set_trace()
-
-        return {key: self[key] for key in self
-                if key not in ('attribute', 'parent', 'wrapper')}
-
-
-class Wrapper:
-
-    def __init__(self):
-        1
-
-def default_wrapper(ctx, *args, **kwargs):
-    ret = ctx.wrapper_func(*args, **kwargs)
-    ReplacementFunctionExecuted.emit(ctx.wrapper_func, args, kwargs, ret)
-    event = ReplacementFunctionExecuted(args, kwargs, ret)
-    event._parent_ = self
-    event.emit()
-    return ret
-
-def insertion_wrapper(ctx, *args, **kwargs):
-    return ctx.wrapper_func(*args, **kwargs)
-
-def hook_wrapper(ctx, *args, **kwargs):
-    ret = ctx.wrapped_func(*args, **kwargs)
-    if ctx.wrapper_func:
-        ctx.wrapper_func(*args, return_value=ret, **kwargs)
-    HookFunctionExecuted.emit(ctx.wrapper_func, args, kwargs, ret)
-    return ret
+    @property
+    def published_context(self):
+        return (key for key in self.keys()
+                if key not in ('attribute', 'parent', 'wrapper_type'))
 
 
-class Patch(ParentContextMixin):
+class Wrapper(PrototypeMixin):
 
-    parent = None
-    #wrapper_type = ReplacementWrapper
+    wrapper_func = ContextAttribute('wrapper_func')
 
-
-    def __init__(self, attribute, parent=None, wrapper=default_wrapper,
-                 **kwargs):
-        if parent:
-            self.parent = parent
-        assert self.parent is not None, "parent can't be None"
-        self.attribute = attribute
-        self.original = getattr(self.parent, self.attribute, None)
-        #
-        #wrapper_type = wrapper_type or self.wrapper_type
-        #self._wrapper = wrapper_type(self, wrapper_func=wrapper_func,
-        #                             wrapped=self.original)
-        self._kwargs = kwargs
-        self.wrapper = partial(wrapper, self.context)
-
-
-    def get_context(self):
-        return self._kwargs # usually {}
+    published_context = ('wrapped_func',)
 
     @property
-    def wrapper(self):
-        return self._wrapper
+    def patch(self):
+        return self._parent_
 
-    #def _signature_f(self):1
+    def run(self, *args, **kwargs):
+        return self.wrapper_func(*args, **kwargs)
 
-    @wrapper.setter
-    def wrapper(self, function):
-        context = self.context
 
-        __self__ = getattr(function, '__self__', None)
+    def __call__(self, wrapped):
+        __self__ = getattr(wrapped, '__self__', None)
         if __self__:
-            function = function.__func__
+             wrapped = wrapped.__func__
+        self.wrapped_func = wrapped
 
-        @wraps(context.get('wrapped_func') or context.wrapper_func)
+        @wraps(wrapped or self.wrapper_func)
         def func(*args, **kwargs):
-            self.off()
+            patch = self._parent_
+            patch.off()
             try:
-                return function(*args, **kwargs)
+                return self.run(*args, **kwargs)
             finally:
-                self.on()
+                patch.on()
 
         if isinstance(__self__, type):
             func = classmethod(func)
         elif __self__:
             func = MethodType(func, self.__self__)
-        self._wrapper = func
+        return func
+
+
+class ReplacementWrapper(Wrapper):
+    def run(self, *args, **kwargs):
+        ret = self.wrapper_func(*args, **kwargs)
+        event = ReplacementFunctionExecuted(args, kwargs, ret, parent_obj=self)
+        event.emit()
+        return ret
+
+
+class InsertionWrapper(Wrapper):
+    pass
+
+
+class HookWrapper(Wrapper):
+    def run(self, *args, **kwargs):
+        ret = self.wrapped_func(*args, **kwargs)
+        if self.wrapper_func:
+            self.wrapper_func(*args, return_value=ret, **kwargs)
+        event = HookFunctionExecuted(args, kwargs, ret=ret, parent_obj=self)
+        event.emit()
+        return ret
+
+
+class Patch(PrototypeMixin):
+
+    parent = None
+
+    def __init__(self, attribute, parent=None, wrapper_type=ReplacementWrapper,
+                 parent_obj=None, **kwargs):
+        PrototypeMixin.__init__(self, parent_obj)
+        if parent:
+            self.parent = parent
+        assert self.parent is not None, "parent can't be None"
+        self.attribute = attribute
+        self.original = getattr(self.parent, self.attribute, None)
+        self.wrapper_type = wrapper_type
+        self.wrapper = wrapper_type(parent_obj=self)(self.original)
+        self._kwargs = kwargs      # unlikely to be used
+
+    @property
+    def published_context(self):
+        if '_kwargs' in self.__dict__:
+            return self._kwargs.keys() # unlikely to be used
+        return ()
+
+    def __getattr__(self, name):   # unlikely to be used
+        if '_kwargs' in self.__dict__:
+            return self._kwargs[name]
+        raise AttributeError(name)
 
     def on(self):
         setattr(self.parent, self.attribute, self.wrapper)
@@ -161,15 +169,16 @@ class Patch(ParentContextMixin):
                 value = value._obj
             if not isinstance(value, patch):
                 continue
+            value.setdefault('attribute', name)
             kwargs = {name: value[name] for name in value
-                      if name in ('attribute', 'parent', 'wrapper')}
-            obj = cls(**kwargs)
-            obj._parent_ = value
+                      if name in ('attribute', 'parent', 'wrapper_type')}
+            obj = cls(parent_obj=value, **kwargs)
             yield obj
 
     @classmethod
     def make_patches(cls):
-        return PatchSuite(*cls._make_patches())
+        patches = list(cls._make_patches())
+        return PatchSuite(*patches)
 
 
 # ugly, just a proof of concept

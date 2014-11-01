@@ -7,15 +7,14 @@ from blacksquare import Config as BaseConfig
 from blacksquare.core.events import Event
 
 from blacksquare.patching import Patch, patch, SimpleConditionalPatch
-from blacksquare.patching.base import (PatchSuite,default_wrapper,
-                                       insertion_wrapper,
-                                       hook_wrapper)
+from blacksquare.patching.base import (PatchSuite, HookWrapper, InsertionWrapper)
 from blacksquare.patching.handlers import PatchSuitesStack, GlobalPatches
 from blacksquare.patching.events import PatchSuiteStart, PatchSuiteFinish
 from blacksquare import get_config, get_context
-from blacksquare.util import ContextDict
 
 from blacksquare.core.objects import Logger
+
+from tests import utils as test_utils
 
 class Calculator:
 
@@ -28,7 +27,7 @@ class BrokenCalculator(Patch):
 
     parent = Calculator
 
-    @patch(wrapper=insertion_wrapper)
+    @patch(wrapper_type=InsertionWrapper)
     def error(self):
         return 0.1 * self.val
 
@@ -49,7 +48,8 @@ class Config(BaseConfig):
 class TestCase(unittest.TestCase):
     def run(self, result=None):
         Config()
-        super().run(result)
+        return super().run(result)
+
 
 
 class Simplest(TestCase):
@@ -172,36 +172,36 @@ class TestEmbed(unittest.TestCase):
         self.assertEqual(Calculator.add, Calculator_add)
 
 
-class HackUnittest(unittest.TestCase): # !
-
-    @classmethod
-    def setUpClass(cls):
-        cls.unittest_TestCase_run = unittest.TestCase.run
-        Config()
-        def runfunc(test, result=None):
-            get_context()['testing.test'] = test._testMethodName
-            unittest.TestCase.run(test, result)
-
-        cls._hacks = PatchSuite( Patch('run', unittest.TestCase,
-                                       wrapper_func=runfunc))
-        PatchSuiteStart.handle(cls._hacks)
-
-
-    def test_with_name(self):
-        calc = Calculator()
-
-        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
-                        ):
-            self.assertEqual( calc.add(2, 3), -1)
-            self.assertEqual(get_context()['testing.test'],
-                             'test_with_name')
-        self.assertEqual(get_context()['testing.test'], 'test_with_name')
-
-
-    @classmethod
-    def tearDownClass(cls):
-        PatchSuiteFinish.handle(cls._hacks)
-        assert unittest.TestCase.run == cls.unittest_TestCase_run
+#class HackUnittest(unittest.TestCase):
+#
+#    @classmethod
+#    def setUpClass(cls):
+#        cls.unittest_TestCase_run = unittest.TestCase.run
+#        Config()
+#        def runfunc(test, result=None):
+#            get_context()['testing.test'] = test._testMethodName
+#            unittest.TestCase.run(test, result)
+#
+#        cls._hacks = PatchSuite( Patch('run', unittest.TestCase,
+#                                       wrapper_func=runfunc))
+#        PatchSuiteStart.handle(cls._hacks)
+#
+#
+#    def test_with_name(self):
+#        calc = Calculator()
+#
+#        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
+#                        ):
+#            self.assertEqual( calc.add(2, 3), -1)
+#            self.assertEqual(get_context()['testing.test'],
+#                             'test_with_name')
+#        self.assertEqual(get_context()['testing.test'], 'test_with_name')
+#
+#
+#    @classmethod
+#    def tearDownClass(cls):
+#        PatchSuiteFinish.handle(cls._hacks)
+#        assert unittest.TestCase.run == cls.unittest_TestCase_run
 
 
 ## TestConditionalPatches ##
@@ -216,7 +216,7 @@ class NumberGenerator:
 class PatchedGenerator(Patch):
     parent = NumberGenerator
 
-    @patch(wrapper=hook_wrapper)
+    @patch(wrapper_type=HookWrapper)
     def generate_number(self, return_value):
         if return_value > 1000:
             BadValue.emit(return_value)
@@ -265,3 +265,15 @@ class TestConditionalPatches(unittest.TestCase):
 # TODO: add tests for multiple threads
 
 # TODO: replace class callable
+
+if __name__ == '__main__':
+    from unittest import main
+    #import ipdb
+    #with ipdb.launch_ipdb_on_exception():
+
+    # pdb fail fast!
+
+    main(#module=__file__[:-3],
+         verbosity=2,
+         testLoader=test_utils.DebugFailuresTestLoader()
+         )

@@ -70,42 +70,44 @@ class PrototypeChainCycle(Exception):
         super().__init__(message)
 
 
-class ParentObjectLookup:
+#class ContextAttribute(object):
+#
+#    def __get__()
 
-    #publish_to_context = ()
+def _context_attribute(name, *default):
+    def fget(self):
+        return self.get_from_context(name, *default)
+    return property(fget)
 
-    def __getattr__(self, attr):
-        try:
-            return super().__getattr__(attr)
-        except AttributeError as ex:
-            pass
-        if self.inject_prototype_context:
-            try:
-                return self.get_from_context(attr)
-            except AttributeError:
-                pass
-        raise ex
+ContextAttribute = _context_attribute # maybe sometimes will be a descriptor class
+
+
+class PrototypeMixin:
+
+    published_context = ()
 
     def _objects(self):
-        # detects cycles
+        # yields prototypes, detects cycles
         objects = []
         obj = self
         while obj is not None:
             yield obj
-            obj = getattr(obj, '_proto_', None)
+            obj = getattr(obj, '_parent_', None)
             if obj in objects:
                 raise PrototypeChainCycle(objects)
+            objects.append(obj)
 
     def get_from_context(self, attr, *default):
         for obj in self._objects():
-            if attr in obj.publish_to_context:
+            if attr in obj.published_context:
                 return getattr(obj, attr)
-        if default == ():
+        if not default:
+            #import pdb; pdb.set_trace()
+
             raise AttributeError(attr)
         return default[0]
 
-    def __init__(self, *args, prototype=None, **kwargs):
-        if prototype:
-            self._proto_ = prototype
-        super(ParentObjectLookup, self).__init__(self, *args, **kwargs)
+    def __init__(self, parent_obj=None):
+        if parent_obj:
+            self._parent_ = parent_obj
 

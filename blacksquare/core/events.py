@@ -46,8 +46,7 @@ class LoggableEvent(Event):
 
     def _log(self):
         logger = get_logger()
-        logger.record()
-        #log_prefix
+        logger.record(self)
 
     @property
     def index(self):
@@ -59,8 +58,8 @@ class LoggableEvent(Event):
     def handle(self):
         'You can implement this.'
 
-    def __repr__(self):
-        return pretty.pretty(self)
+    #def __repr__(self):
+    #    return pretty.pretty(self)
 
     def _repr_pretty_(self, p, cycle):
         if cycle:
