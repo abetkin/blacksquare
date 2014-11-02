@@ -1,1 +1,2 @@
-from .base import Patch, patch, SimpleConditionalPatch #FIXME
+from .base import Patch, SimpleConditionalPatch #FIXME
+from .suite import PatchSuite, patch

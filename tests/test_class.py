@@ -8,13 +8,13 @@ from blacksquare import Config as BaseConfig
 from blacksquare.core.events import Event
 
 from blacksquare.patching import Patch, patch, SimpleConditionalPatch
-from blacksquare.patching.base import (PatchSuite, HookWrapper, InsertionWrapper)
+from blacksquare.patching.base import (HookWrapper, InsertionWrapper)
 from blacksquare.patching.handlers import PatchSuitesStack, GlobalPatches
 from blacksquare.patching.events import PatchSuiteStart, PatchSuiteFinish
 from blacksquare import get_config, get_storage
 
 from blacksquare.core.objects import Logger
-
+from blacksquare.patching.suite import PatchSuite
 from tests import utils as test_utils
 
 class Base:
@@ -30,9 +30,10 @@ class Class(Base):
 
 Class_orig = Class
 
-class SwapClass(Patch):
+class SwapClass(PatchSuite):
 
-    parent = Class
+    class Meta:
+        parent = Class
 
     #@patch(wrapper_type=InsertionWrapper)
     #def __new__(cls):

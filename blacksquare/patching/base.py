@@ -3,76 +3,10 @@ from types import MethodType
 from .events import ReplacementFunctionExecuted, HookFunctionExecuted
 
 from .. import get_config
-from ..util import PrototypeMixin, DotAccessDict, ContextAttribute
+from ..util import PrototypeMixin, ContextAttribute
 from .events import ContextChange
 
 #TODO test _bind to instance
-
-import itertools
-from .events import PatchSuiteStart, PatchSuiteFinish
-
-
-class PatchSuite:
-    '''
-    Container for patches.
-    '''
-
-    def __init__(self, *patches):
-        self.patches = tuple(patches)
-
-    def __add__(self, other):
-        patches = itertools.chain(iter(self), iter(other))
-        return PatchSuite(*patches)
-
-    def __radd__(self, other):
-        patches = itertools.chain(iter(other), iter(self))
-        return PatchSuite(*patches)
-
-    def __iter__(self):
-        return iter(self.patches)
-
-    def __contains__(self, item):
-        return item in self.patches
-
-    def __getitem__(self, index):
-        return self.patches[index]
-
-    def __len__(self):
-        return len(self.patches)
-
-    def __enter__(self):
-        PatchSuiteStart.emit(self)
-        return self
-
-    def __exit__(self, *exc_info):
-        PatchSuiteFinish.emit(self)
-        if exc_info[0]: # postmortem debug?
-            raise
-
-
-class patch(DotAccessDict):
-    '''
-    Marks smth as a patch.
-
-    Can decorate a function::
-
-        @patch(**attrs)
-        def marked_function(*a, **kw):
-            pass
-
-    or be assigned to an attribute::
-
-        marked_attr = patch(**attrs)
-    '''
-
-    def __call__(self, f):
-        f._obj = self
-        return f
-
-    @property
-    def published_context(self):
-        return (key for key in self.keys()
-                if key not in ('attribute', 'parent', 'wrapper_type'))
 
 
 class Wrapper(PrototypeMixin):
