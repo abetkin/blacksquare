@@ -114,7 +114,7 @@ class InsertionWrapper(Wrapper):
 class HookWrapper(Wrapper):
     def run(self, *args, **kwargs):
         ret = self.wrapped_func(*args, **kwargs)
-        if self.wrapper_func:
+        if self.get_from_context('wrapper_func', None):
             self.wrapper_func(*args, return_value=ret, **kwargs)
         event = HookFunctionExecuted(args, kwargs, ret=ret, parent_obj=self)
         event.emit()
@@ -161,15 +161,19 @@ class Patch(PrototypeMixin):
     def is_on(self):
         return getattr(self.parent, self.attribute) != self.original
 
+    # This is a Patch factory
+    # TODO: probably make customizable
     @classmethod
     def _make_patches(cls):
         for name, value in cls.__dict__.items():
             if callable(value) and hasattr(value, '_obj'):
                 value._obj.update(wrapper_func=value)
+                value._obj.setdefault('wrapper_type', ReplacementWrapper)
                 value = value._obj
             if not isinstance(value, patch):
                 continue
             value.setdefault('attribute', name)
+            value.setdefault('wrapper_type', HookWrapper)
             kwargs = {name: value[name] for name in value
                       if name in ('attribute', 'parent', 'wrapper_type')}
             obj = cls(parent_obj=value, **kwargs)

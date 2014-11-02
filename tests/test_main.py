@@ -172,36 +172,36 @@ class TestEmbed(unittest.TestCase):
         self.assertEqual(Calculator.add, Calculator_add)
 
 
-#class HackUnittest(unittest.TestCase):
-#
-#    @classmethod
-#    def setUpClass(cls):
-#        cls.unittest_TestCase_run = unittest.TestCase.run
-#        Config()
-#        def runfunc(test, result=None):
-#            get_context()['testing.test'] = test._testMethodName
-#            unittest.TestCase.run(test, result)
-#
-#        cls._hacks = PatchSuite( Patch('run', unittest.TestCase,
-#                                       wrapper_func=runfunc))
-#        PatchSuiteStart.handle(cls._hacks)
-#
-#
-#    def test_with_name(self):
-#        calc = Calculator()
-#
-#        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
-#                        ):
-#            self.assertEqual( calc.add(2, 3), -1)
-#            self.assertEqual(get_context()['testing.test'],
-#                             'test_with_name')
-#        self.assertEqual(get_context()['testing.test'], 'test_with_name')
-#
-#
-#    @classmethod
-#    def tearDownClass(cls):
-#        PatchSuiteFinish.handle(cls._hacks)
-#        assert unittest.TestCase.run == cls.unittest_TestCase_run
+class HackUnittest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.unittest_TestCase_run = unittest.TestCase.run
+        Config()
+        def runfunc(test, result=None):
+            get_context()['testing.test'] = test._testMethodName
+            unittest.TestCase.run(test, result)
+
+        cls._hacks = PatchSuite( Patch('run', unittest.TestCase,
+                                       wrapper_func=runfunc))
+        PatchSuiteStart.handle(cls._hacks)
+
+
+    def test_with_name(self):
+        calc = Calculator()
+
+        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
+                        ):
+            self.assertEqual( calc.add(2, 3), -1)
+            self.assertEqual(get_context()['testing.test'],
+                             'test_with_name')
+        self.assertEqual(get_context()['testing.test'], 'test_with_name')
+
+
+    @classmethod
+    def tearDownClass(cls):
+        PatchSuiteFinish.handle(cls._hacks)
+        assert unittest.TestCase.run == cls.unittest_TestCase_run
 
 
 ## TestConditionalPatches ##
