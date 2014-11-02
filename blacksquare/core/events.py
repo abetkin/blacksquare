@@ -58,9 +58,6 @@ class LoggableEvent(Event):
     def handle(self):
         'You can implement this.'
 
-    #def __repr__(self):
-    #    return pretty.pretty(self)
-
     def _repr_pretty_(self, p, cycle):
         if cycle:
             p.text('Event(...)')

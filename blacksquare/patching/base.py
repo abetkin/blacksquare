@@ -2,7 +2,7 @@ from functools import wraps, partial, update_wrapper
 from types import MethodType
 from .events import ReplacementFunctionExecuted, HookFunctionExecuted
 
-from .. import get_config, get_context
+from .. import get_config
 from ..util import PrototypeMixin, DotAccessDict, ContextAttribute
 from .events import ContextChange
 
@@ -51,7 +51,19 @@ class PatchSuite:
 
 
 class patch(DotAccessDict):
-    '''Mark function as a patch.'''
+    '''
+    Marks smth as a patch.
+
+    Can decorate a function::
+
+        @patch(**attrs)
+        def marked_function(*a, **kw):
+            pass
+
+    or be assigned to an attribute::
+
+        marked_attr = patch(**attrs)
+    '''
 
     def __call__(self, f):
         f._obj = self
@@ -67,15 +79,15 @@ class Wrapper(PrototypeMixin):
 
     wrapper_func = ContextAttribute('wrapper_func')
 
+    pass_event = ContextAttribute('pass_event', False)
+    event = ContextAttribute('event', None)
+
     published_context = ('wrapped_func',)
 
-    @property
-    def patch(self):
-        return self._parent_
-
     def run(self, *args, **kwargs):
-        return self.wrapper_func(*args, **kwargs)
-
+        if not self.pass_event:
+            return self.wrapper_func(*args, **kwargs)
+        return self.wrapper_func(*args, event=self.event, **kwargs)
 
     def __call__(self, wrapped):
         __self__ = getattr(wrapped, '__self__', None)
@@ -100,10 +112,14 @@ class Wrapper(PrototypeMixin):
 
 
 class ReplacementWrapper(Wrapper):
+    event_class = ContextAttribute('event_class', ReplacementFunctionExecuted)
+
     def run(self, *args, **kwargs):
-        ret = self.wrapper_func(*args, **kwargs)
-        event = ReplacementFunctionExecuted(args, kwargs, ret, parent_obj=self)
-        event.emit()
+        self.event = self.event_class(args, kwargs, parent_obj=self)
+        ret = super().run(*args, **kwargs)
+        self.event.rv = ret
+        # TODO: probably allow emit with args, update __dict__
+        self.event.emit()
         return ret
 
 
@@ -112,12 +128,14 @@ class InsertionWrapper(Wrapper):
 
 
 class HookWrapper(Wrapper):
+    event_class = ContextAttribute('event_class', HookFunctionExecuted)
+
     def run(self, *args, **kwargs):
         ret = self.wrapped_func(*args, **kwargs)
+        self.event = self.event_class(args, kwargs, ret=ret, parent_obj=self)
         if self.get_from_context('wrapper_func', None):
-            self.wrapper_func(*args, return_value=ret, **kwargs)
-        event = HookFunctionExecuted(args, kwargs, ret=ret, parent_obj=self)
-        event.emit()
+            super().run(*args, return_value=ret, **kwargs)
+        self.event.emit()
         return ret
 
 
@@ -125,28 +143,23 @@ class Patch(PrototypeMixin):
 
     parent = None
 
-    def __init__(self, attribute, parent=None, wrapper_type=ReplacementWrapper,
+    wrapper_type = ContextAttribute('wrapper_type', ReplacementWrapper)
+
+    def __init__(self, attribute, parent=None,
                  parent_obj=None, **kwargs):
         PrototypeMixin.__init__(self, parent_obj)
+        if kwargs:
+            # alternative to specifying parent object
+            self.published_context_extra = dict(
+                getattr(self, 'published_context_extra', ()),
+                **kwargs)
         if parent:
             self.parent = parent
         assert self.parent is not None, "parent can't be None"
         self.attribute = attribute
         self.original = getattr(self.parent, self.attribute, None)
-        self.wrapper_type = wrapper_type
-        self.wrapper = wrapper_type(parent_obj=self)(self.original)
-        self._kwargs = kwargs      # unlikely to be used
+        self.wrapper = self.wrapper_type(parent_obj=self)(self.original)
 
-    @property
-    def published_context(self):
-        if '_kwargs' in self.__dict__:
-            return self._kwargs.keys() # unlikely to be used
-        return ()
-
-    def __getattr__(self, name):   # unlikely to be used
-        if '_kwargs' in self.__dict__:
-            return self._kwargs[name]
-        raise AttributeError(name)
 
     def on(self):
         setattr(self.parent, self.attribute, self.wrapper)
@@ -161,23 +174,40 @@ class Patch(PrototypeMixin):
     def is_on(self):
         return getattr(self.parent, self.attribute) != self.original
 
-    # This is a Patch factory
-    # TODO: probably make customizable
     @classmethod
-    def _make_patches(cls):
-        for name, value in cls.__dict__.items():
+    def _get_marks(cls):
+        for name in dir(cls):
+            value = getattr(cls, name)
             if callable(value) and hasattr(value, '_obj'):
                 value._obj.update(wrapper_func=value)
                 value._obj.setdefault('wrapper_type', ReplacementWrapper)
                 value = value._obj
             if not isinstance(value, patch):
                 continue
+            yield name, value
+
+    # This is a Patch factory
+    @classmethod
+    def _make_patches(cls):
+        class_attributes = dict(cls._get_marks())
+        #import ipdb; ipdb.set_trace()
+
+        #for name in class_attributes:
+        #    delattr(cls, name)
+        for name, value in class_attributes.items():
+            #if callable(value) and hasattr(value, '_obj'):
+            #    value._obj.update(wrapper_func=value)
+            #    value._obj.setdefault('wrapper_type', ReplacementWrapper)
+            #    value = value._obj
+            #if not isinstance(value, patch):
+            #    continue
             value.setdefault('attribute', name)
             value.setdefault('wrapper_type', HookWrapper)
             kwargs = {name: value[name] for name in value
                       if name in ('attribute', 'parent', 'wrapper_type')}
             obj = cls(parent_obj=value, **kwargs)
             yield obj
+
 
     @classmethod
     def make_patches(cls):

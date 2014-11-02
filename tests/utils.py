@@ -5,22 +5,16 @@ from unittest import loader, case, suite, util
 from functools import wraps
 import ipdb
 
-@contextmanager
-def launch_ipdb_on_exception():
-    try:
-        yield
-    except Exception:
-        e, m, tb = sys.exc_info()
-        print(m.__repr__(), file=sys.stderr)
-        ipdb.post_mortem(tb)
-        raise
-
-
 def ipdb_on_exception(func):
     @wraps(func)
     def wrapper(*args, **kwds):
-        with launch_ipdb_on_exception():
+        try:
             return func(*args, **kwds)
+        except Exception:
+            e, m, tb = sys.exc_info()
+            print(m.__repr__(), file=sys.stderr)
+            ipdb.post_mortem(tb)
+            raise
     return wrapper
 
 class DebugFailuresTestLoader(loader.TestLoader):

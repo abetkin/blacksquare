@@ -43,7 +43,7 @@ class DictAndObject(dict):
         super(DictAndObject, self).__init__(*args, **kw)
         self.__dict__ = self
 
-class ContextTree(ThreadLocalMixin):
+class Storage(ThreadLocalMixin):
 
     global_name = 'context'
 
@@ -91,6 +91,12 @@ class Logger(ThreadLocalMixin):
 
     def __getattr__(self, attr):
         return getattr(self._list, attr)
+
+    def __getitem__(self, item):
+        records = self._list[item]
+        from .events import Event
+        event, = (record for record in records if isinstance(record, Event))
+        return event
 
     def _log_pretty_(self, p, cycle):
         if cycle:

@@ -70,16 +70,35 @@ class PrototypeChainCycle(Exception):
         super().__init__(message)
 
 
-#class ContextAttribute(object):
-#
-#    def __get__()
+def _fixed_context_attribute(name, *default):
+    def fget(self):
+        self.__dict__.setdefault('_context_attributes', {})
+        if not self._context_attributes.get(name):
+            value = self.get_from_context(name, *default)
+            self._context_attributes[name] = value
+        else:
+            value = self._context_attributes[name]
+        return value
 
-def _context_attribute(name, *default):
+    def fset(self, value):
+        self.__dict__.setdefault('_context_attributes', {})
+        self._context_attributes[name] = value
+
+    return property(fget, fset)
+
+
+def _dynamic_context_attribute(name, *default):
     def fget(self):
         return self.get_from_context(name, *default)
+
     return property(fget)
 
-ContextAttribute = _context_attribute # maybe sometimes will be a descriptor class
+# Logically a descriptor, probably sometimes will turn into a descriptor class -
+# hence the naming style.
+def ContextAttribute(name, *default, fixed=True):
+    if  fixed:
+        return _fixed_context_attribute(name, *default)
+    return _dynamic_context_attribute(name, *default)
 
 
 class PrototypeMixin:
@@ -101,11 +120,13 @@ class PrototypeMixin:
         for obj in self._objects():
             if attr in obj.published_context:
                 return getattr(obj, attr)
-        if not default:
-            #import pdb; pdb.set_trace()
+            if hasattr(obj, 'published_context_extra') \
+                    and attr in obj.published_context_extra:
+                return obj.published_context_extra[attr]
+        if default:
+            return default[0]
+        raise AttributeError(attr)
 
-            raise AttributeError(attr)
-        return default[0]
 
     def __init__(self, parent_obj=None):
         if parent_obj:

@@ -11,6 +11,10 @@ from rest_framework import serializers as rest_serializers, fields as rest_field
 
 from blacksquare.patching import Patch, patch
 from blacksquare.patching.base import InsertionWrapper, HookWrapper, PatchSuite
+from blacksquare.patching.events import HookFunctionExecuted
+from blacksquare.util import ContextAttribute
+
+from IPython.lib.pretty import pretty
 
 
 class SerializerPatch(Patch):
@@ -18,15 +22,39 @@ class SerializerPatch(Patch):
 
     from_native = patch()
 
+class FieldFromNativeEvent(HookFunctionExecuted):
+
+    log_prefix = None
+
+
+    def _log_pretty_(self, p, cycle): # remove _
+        if cycle:
+            p.text('HookFunction(..)')
+            return
+        with p.group(len(self.log_prefix), self.log_prefix):
+            p.text( pretty(self.field_value))
+            p.text(' was set into ')
+            p.breakable()
+            p.text(self.field_name)
+
 
 class WritableFieldPatch(Patch):
 
-    log_prefix = 'field:'
+    parent = rest_fields.WritableField #TODO tuple? if many places to patch
 
-    parent = rest_fields.WritableField #TODO tuple? many places to patch
-
-    field_from_native = patch()
     from_native = patch()
+
+    @patch(wrapper_type=HookWrapper, pass_event=True, event_class=FieldFromNativeEvent)
+    def field_from_native(self, data, files, field_name, into,
+                          return_value, event):
+        #import ipdb; ipdb.set_trace()
+
+        event.published_context = ('log_prefix',)
+        event.__dict__.update({
+            'log_prefix': '-> ',
+            'field_value': into.get(field_name),
+            'field_name': field_name,
+        })
 
 if __name__ == '__main__':
 

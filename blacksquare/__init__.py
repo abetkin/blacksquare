@@ -1,7 +1,7 @@
-from .core.objects import ContextTree, Config, Logger
+from .core.objects import Storage, Config, Logger
 
-def get_context():
-    return ContextTree.instance()
+def get_storage():
+    return Storage.instance()
 
 def get_config():
     return Config.instance()

@@ -10,7 +10,7 @@ from blacksquare.patching import Patch, patch, SimpleConditionalPatch
 from blacksquare.patching.base import (PatchSuite, HookWrapper, InsertionWrapper)
 from blacksquare.patching.handlers import PatchSuitesStack, GlobalPatches
 from blacksquare.patching.events import PatchSuiteStart, PatchSuiteFinish
-from blacksquare import get_config, get_context
+from blacksquare import get_config, get_storage
 
 from blacksquare.core.objects import Logger
 
@@ -156,12 +156,12 @@ class TestEmbed(unittest.TestCase):
         config.set_breakpoint(0)
 
     def _test_pdb(self, _locals, _globals):
-        ctx = _globals['get_context']()
+        ctx = _globals['get_storage']()
         self.assertEqual(ctx['my.var'], 'my.value')
         self.assertEqual(_locals['ret'], -1)
 
     def runTest(self):
-        get_context()['my.var'] = 'my.value'
+        get_storage()['my.var'] = 'my.value'
         calc = Calculator()
 
         with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
@@ -179,7 +179,7 @@ class HackUnittest(unittest.TestCase):
         cls.unittest_TestCase_run = unittest.TestCase.run
         Config()
         def runfunc(test, result=None):
-            get_context()['testing.test'] = test._testMethodName
+            get_storage()['testing.test'] = test._testMethodName
             unittest.TestCase.run(test, result)
 
         cls._hacks = PatchSuite( Patch('run', unittest.TestCase,
@@ -193,9 +193,9 @@ class HackUnittest(unittest.TestCase):
         with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
                         ):
             self.assertEqual( calc.add(2, 3), -1)
-            self.assertEqual(get_context()['testing.test'],
+            self.assertEqual(get_storage()['testing.test'],
                              'test_with_name')
-        self.assertEqual(get_context()['testing.test'], 'test_with_name')
+        self.assertEqual(get_storage()['testing.test'], 'test_with_name')
 
 
     @classmethod
