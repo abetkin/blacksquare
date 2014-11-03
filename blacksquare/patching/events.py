@@ -20,8 +20,8 @@ class FunctionExecuted(PrototypeMixin, LoggableEvent):
     log_prefix = ContextAttribute('log_prefix', '')
 
     # wrapper -> func
-    def __init__(self, args, kwargs, ret=NOT_SET, parent_obj=None):
-        PrototypeMixin.__init__(self, parent_obj)
+    def __init__(self, args, kwargs, ret=NOT_SET, prototype=None):
+        PrototypeMixin.__init__(self, prototype)
         function = self.wrapped_func or self.wrapper_func
         sig = inspect.signature(function) # FIXME
         self.call_args = sig.bind(*args, **kwargs).arguments

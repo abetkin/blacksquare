@@ -111,7 +111,7 @@ class PrototypeMixin:
         obj = self
         while obj is not None:
             yield obj
-            obj = getattr(obj, '_parent_', None)
+            obj = getattr(obj, '_prototype_', None)
             if obj in objects:
                 raise PrototypeChainCycle(objects)
             objects.append(obj)
@@ -128,7 +128,7 @@ class PrototypeMixin:
         raise AttributeError(attr)
 
 
-    def __init__(self, parent_obj=None):
-        if parent_obj:
-            self._parent_ = parent_obj
+    def __init__(self, prototype=None):
+        if prototype:
+            self._prototype_ = prototype
 

@@ -49,8 +49,8 @@ class TestClass(unittest.TestCase):
     #def setUp(self):
     #    self.assertEqual(Class, Class_orig)
 
-    def runTest(self):
-        with SwapClass.make_patches():
+    def test_1(self):
+        with SwapClass():
             obj = Class()
             self.assertEqual(obj.val, 5)
         self.assertEqual(Class().val, 2)

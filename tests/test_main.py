@@ -6,8 +6,8 @@ import logging
 from blacksquare import Config as BaseConfig
 from blacksquare.core.events import Event
 
-from blacksquare.patching import Patch, patch, SimpleConditionalPatch
-from blacksquare.patching.base import (PatchSuite, HookWrapper, InsertionWrapper)
+from blacksquare.patching import Patch, patch, SimpleConditionalPatch, PatchSuite
+from blacksquare.patching.base import (HookWrapper, InsertionWrapper)
 from blacksquare.patching.handlers import PatchSuitesStack, GlobalPatches
 from blacksquare.patching.events import PatchSuiteStart, PatchSuiteFinish
 from blacksquare import get_config, get_storage
@@ -23,9 +23,9 @@ class Calculator:
 
 Calculator_add = Calculator.add
 
-class BrokenCalculator(Patch):
-
-    parent = Calculator
+class BrokenCalculator(PatchSuite):
+    class Meta:
+        parent = Calculator
 
     @patch(wrapper_type=InsertionWrapper)
     def error(self):
@@ -52,6 +52,7 @@ class TestCase(unittest.TestCase):
 
 
 
+
 class Simplest(TestCase):
 
     def setUp(self):
@@ -59,9 +60,8 @@ class Simplest(TestCase):
 
     def runTest(self):
         calc = Calculator()
-
-        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
-                        ):
+        patches = ( Patch('add', Calculator, wrapper_func=replace_add),)
+        with PatchSuite(patches):
             self.assertEqual( calc.add(2, 3), -1)
 
 
@@ -86,12 +86,13 @@ class TestGlobalPatches(TestCase):
 
     def runTest(self):
         calc = Calculator()
-
-        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
-                        ):
+        patches = ( Patch('add', Calculator, wrapper_func=replace_add),
+                        )
+        with PatchSuite(patches):
             self.assertEqual( calc.add(2, 3), -1)
-            with BrokenCalculator.make_patches():
+            with BrokenCalculator():
                 self.assertAlmostEqual( calc.add(2, 3), 5.5)
+
             self.assertEqual( calc.add(2, 3), 5.5)
         self.assertEqual( calc.add(2, 3), 5)
 
@@ -112,12 +113,13 @@ class TestPatchSuitesStack(TestCase):
 
     def runTest(self):
         calc = Calculator()
-
-        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
-                        ):
+        patches = ( Patch('add', Calculator, wrapper_func=replace_add),)
+        with PatchSuite(patches):
             self.assertEqual( calc.add(2, 3), -1)
-            with BrokenCalculator.make_patches():
+            with BrokenCalculator():
                 self.assertAlmostEqual( calc.add(2, 3), 5.5)
+                #import ipdb; ipdb.set_trace()
+
             self.assertEqual( calc.add(2, 3), -1)
 
         self.assertEqual( calc.add(2, 3), 5)
@@ -134,9 +136,9 @@ class TestFormat(TestCase):
 
     def runTest(self):
         calc = Calculator()
-
-        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
-                        ):
+        patches = ( Patch('add', Calculator, wrapper_func=replace_add),
+                        )
+        with PatchSuite(patches):
             self.assertEqual( calc.add(2, 3), -1)
 
         out = str(Logger.instance())
@@ -163,9 +165,9 @@ class TestEmbed(unittest.TestCase):
     def runTest(self):
         get_storage()['my.var'] = 'my.value'
         calc = Calculator()
-
-        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
-                        ):
+        patches = ( Patch('add', Calculator, wrapper_func=replace_add),
+                        )
+        with PatchSuite(patches):
             self.assertEqual( calc.add(2, 3), -1)
 
     def tearDown(self):
@@ -181,17 +183,16 @@ class HackUnittest(unittest.TestCase):
         def runfunc(test, result=None):
             get_storage()['testing.test'] = test._testMethodName
             unittest.TestCase.run(test, result)
-
-        cls._hacks = PatchSuite( Patch('run', unittest.TestCase,
-                                       wrapper_func=runfunc))
+        patches = (Patch('run', unittest.TestCase, wrapper_func=runfunc),)
+        cls._hacks = PatchSuite(patches)
         PatchSuiteStart.handle(cls._hacks)
 
 
     def test_with_name(self):
         calc = Calculator()
-
-        with PatchSuite( Patch('add', Calculator, wrapper_func=replace_add)
-                        ):
+        patches = ( Patch('add', Calculator, wrapper_func=replace_add),
+                        )
+        with PatchSuite(patches):
             self.assertEqual( calc.add(2, 3), -1)
             self.assertEqual(get_storage()['testing.test'],
                              'test_with_name')
@@ -213,8 +214,9 @@ class NumberGenerator:
     def generate_number(self):
         return random.randint(0, 1100)
 
-class PatchedGenerator(Patch):
-    parent = NumberGenerator
+class PatchedGenerator(PatchSuite):
+    class Meta:
+        parent = NumberGenerator
 
     @patch(wrapper_type=HookWrapper)
     def generate_number(self, return_value):
@@ -231,10 +233,11 @@ class Printer:
         cls.printed.append(value)
 
 
-class PatchedPrinter(SimpleConditionalPatch):
-
-    parent = Printer
-    event_to_listen = BadValue
+class PatchedPrinter(PatchSuite):
+    class Meta:
+        parent = Printer
+        listen_to = BadValue
+        patch_type=SimpleConditionalPatch
 
     @patch(attribute='_print')
     def print_stub(cls, value):
@@ -244,7 +247,7 @@ class PatchedPrinter(SimpleConditionalPatch):
 class TestConditionalPatches(unittest.TestCase):
 
     def setUp(self):
-        self._patches = PatchedPrinter.make_patches() + PatchedGenerator.make_patches()
+        self._patches = PatchedPrinter() + PatchedGenerator()
         PatchSuiteStart.handle(self._patches)
 
     def runTest(self):
@@ -262,9 +265,24 @@ class TestConditionalPatches(unittest.TestCase):
 
 ##
 
+class TestBindToInstance(unittest.TestCase):
+
+    def runTest(self):
+        calc = Calculator()
+
+        @patch(parent=calc, attribute='add')
+        def replace_add(inst, a, b):
+            return max(a, b)
+
+        with PatchSuite([replace_add.make_patch()]):
+            self.assertEqual( calc.add(2, 3), 3)
+        self.assertEqual( calc.add(2, 3), 5)
+
+
+
 # TODO: add tests for multiple threads
 
-# TODO: replace class callable
+
 
 if __name__ == '__main__':
     from unittest import main
