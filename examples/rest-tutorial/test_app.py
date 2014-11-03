@@ -9,16 +9,17 @@ django.setup()
 
 from rest_framework import serializers as rest_serializers, fields as rest_fields
 
-from blacksquare.patching import Patch, patch
-from blacksquare.patching.base import InsertionWrapper, HookWrapper, PatchSuite
+from blacksquare.patching import Patch, patch, PatchSuite
+from blacksquare.patching.base import InsertionWrapper, HookWrapper
 from blacksquare.patching.events import HookFunctionExecuted
 from blacksquare.util import ContextAttribute
 
 from IPython.lib.pretty import pretty
 
 
-class SerializerPatch(Patch):
-    parent = rest_serializers.Serializer
+class SerializerPatch(PatchSuite):
+    class Meta:
+        parent = rest_serializers.Serializer
 
     from_native = patch()
 
@@ -38,17 +39,15 @@ class FieldFromNativeEvent(HookFunctionExecuted):
             p.text(self.field_name)
 
 
-class WritableFieldPatch(Patch):
-
-    parent = rest_fields.WritableField #TODO tuple? if many places to patch
+class WritableFieldPatch(PatchSuite):
+    class Meta:
+        parent = rest_fields.WritableField #TODO tuple? if many places to patch
 
     from_native = patch()
 
     @patch(wrapper_type=HookWrapper, pass_event=True, event_class=FieldFromNativeEvent)
     def field_from_native(self, data, files, field_name, into,
                           return_value, event):
-        #import ipdb; ipdb.set_trace()
-
         event.published_context = ('log_prefix',)
         event.__dict__.update({
             'log_prefix': '-> ',
@@ -68,6 +67,5 @@ if __name__ == '__main__':
 
     import ipdb
     with ipdb.launch_ipdb_on_exception():
-        with (SerializerPatch.make_patches()
-              + WritableFieldPatch.make_patches()):
+        with (SerializerPatch() + WritableFieldPatch()):
             do()

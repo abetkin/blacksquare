@@ -41,28 +41,28 @@ class patch(DotAccessDict):
 
 class CollectPatchesMeta(type):
 
-    def make_patches(cls, classdict):
-        for name, value in classdict.items():
-            if not isinstance(value, patch):
-                continue
-            p = value
-            Meta = classdict.get('Meta', None)
-            for attr, value in (Meta.__dict__.items()
-                                if Meta else ()):
-                if attr.startswith('__') and attr.endswith('__'):
+    def __new__(cls, name, bases, classdict):
+        patches_dict = {name: value for name, value in classdict.items()
+                        if isinstance(value, patch)}
+        def read_meta():
+            Meta = classdict.get('Meta', ())
+            for name, value in Meta and Meta.__dict__.items():
+                if name.startswith('__') and name.endswith('__'):
                     continue
+                yield name, value
+
+        for name, p in patches_dict.items():
+            for attr, value in read_meta():
                 p.setdefault(attr, value)
             p.setdefault('attribute', name)
             p.setdefault('wrapper_type', HookWrapper)
-            yield p
+            del classdict[name]
 
-    def __new__(cls, name, bases, classdict):
-        patches = tuple(cls.make_patches(cls, classdict))
-        classdict = {'collected_patches': patches,} # leave only this
+        classdict['collected_patches'] = tuple(patches_dict.values())
         return type.__new__(cls, name, bases, classdict)
 
 
-class BasePatchSuite:
+class PatchSuite(metaclass=CollectPatchesMeta):
     '''
     Container for patches.
     '''
@@ -113,6 +113,3 @@ class BasePatchSuite:
         PatchSuiteFinish.emit(self)
         if exc_info[0]: # postmortem debug?
             raise
-
-class PatchSuite(BasePatchSuite, metaclass=CollectPatchesMeta):
-    pass
