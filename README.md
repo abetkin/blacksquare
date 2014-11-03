@@ -1,5 +1,5 @@
-patched: use the localhost correctly!
-=====================================
+patched
+========
 
 ``patched`` is a mini-framework for patching with emphasis on simplicity, relative safety and human-oriented interface.
 In regard of patching,
