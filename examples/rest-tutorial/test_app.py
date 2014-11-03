@@ -9,10 +9,10 @@ django.setup()
 
 from rest_framework import serializers as rest_serializers, fields as rest_fields
 
-from blacksquare.patching import Patch, patch, PatchSuite
-from blacksquare.patching.base import InsertionWrapper, HookWrapper
-from blacksquare.patching.events import HookFunctionExecuted
-from blacksquare.util import ContextAttribute
+from patched.patching import Patch, patch, PatchSuite
+from patched.patching.base import InsertionWrapper, HookWrapper
+from patched.patching.events import HookFunctionExecuted
+from patched.util import ContextAttribute
 
 from IPython.lib.pretty import pretty
 

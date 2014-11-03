@@ -25,7 +25,7 @@ class Config(ThreadLocalMixin):
         handlers.remove(handler)
 
     def get_controller_class(self):
-        from blacksquare.patching.handlers import GlobalPatches
+        from patched.patching.handlers import GlobalPatches
         return GlobalPatches
 
     def set_breakpoint(self, index):

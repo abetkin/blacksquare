@@ -4,17 +4,17 @@ import unittest
 import random
 import logging
 
-from blacksquare import Config as BaseConfig
-from blacksquare.core.events import Event
+from patched import Config as BaseConfig
+from patched.core.events import Event
 
-from blacksquare.patching import Patch, patch, SimpleConditionalPatch
-from blacksquare.patching.base import (HookWrapper, InsertionWrapper)
-from blacksquare.patching.handlers import PatchSuitesStack, GlobalPatches
-from blacksquare.patching.events import PatchSuiteStart, PatchSuiteFinish
-from blacksquare import get_config, get_storage
+from patched.patching import Patch, patch, SimpleConditionalPatch
+from patched.patching.base import (HookWrapper, InsertionWrapper)
+from patched.patching.handlers import PatchSuitesStack, GlobalPatches
+from patched.patching.events import PatchSuiteStart, PatchSuiteFinish
+from patched import get_config, get_storage
 
-from blacksquare.core.objects import Logger
-from blacksquare.patching.suite import PatchSuite
+from patched.core.objects import Logger
+from patched.patching.suite import PatchSuite
 from tests import utils as test_utils
 
 class Base:
