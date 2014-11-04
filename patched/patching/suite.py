@@ -4,7 +4,7 @@ from functools import reduce
 
 from ..util import PrototypeMixin, DotAccessDict, ContextAttribute
 from .events import PatchSuiteStart, PatchSuiteFinish
-from .base import HookWrapper, ReplacementWrapper, InsertionWrapper, Patch
+from . import wrappers, Patch
 
 class patch(DotAccessDict):
     '''
@@ -30,7 +30,7 @@ class patch(DotAccessDict):
     def __call__(self, f):
         # decorate function
         self['wrapper_func'] = f
-        self.setdefault('wrapper_type', ReplacementWrapper)
+        self.setdefault('wrapper_type', wrappers.Replacement)
         return self
 
     @property
@@ -64,7 +64,7 @@ class CollectPatchesMeta(type):
             for attr, value in read_meta():
                 p.setdefault(attr, value)
             p.setdefault('attribute', name)
-            p.setdefault('wrapper_type', HookWrapper)
+            p.setdefault('wrapper_type', wrappers.Hook)
             del classdict[name]
 
         classdict['collected_patches'] = tuple(patches_dict.values())

@@ -10,7 +10,7 @@ django.setup()
 from rest_framework import serializers as rest_serializers, fields as rest_fields
 
 from patched.patching import Patch, patch, PatchSuite
-from patched.patching.base import InsertionWrapper, HookWrapper
+from patched.patching import wrappers
 from patched.patching.events import HookFunctionExecuted
 from patched.util import ContextAttribute
 
@@ -45,7 +45,7 @@ class WritableFieldPatch(PatchSuite):
 
     from_native = patch()
 
-    @patch(wrapper_type=HookWrapper, pass_event=True, event_class=FieldFromNativeEvent)
+    @patch(wrapper_type=wrappers.Hook, pass_event=True, event_class=FieldFromNativeEvent)
     def field_from_native(self, data, files, field_name, into,
                           return_value, event):
         event.published_context = ('log_prefix',)

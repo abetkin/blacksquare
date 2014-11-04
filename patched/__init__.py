@@ -10,3 +10,5 @@ def get_config():
 
 def get_logger():
     return Logger.instance()
+
+from .patching import PatchSuite, patch, wrappers

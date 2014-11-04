@@ -7,7 +7,7 @@ from patched import Config as BaseConfig
 from patched.core.events import Event
 
 from patched.patching import Patch, patch, SimpleConditionalPatch, PatchSuite
-from patched.patching.base import (HookWrapper, InsertionWrapper)
+from patched.patching import wrappers
 from patched.patching.handlers import PatchSuitesStack, GlobalPatches
 from patched.patching.events import PatchSuiteStart, PatchSuiteFinish
 from patched import get_config, get_storage
@@ -27,7 +27,7 @@ class BrokenCalculator(PatchSuite):
     class Meta:
         parent = Calculator
 
-    @patch(wrapper_type=InsertionWrapper)
+    @patch(wrapper_type=wrappers.Insertion)
     def error(self):
         return 0.1 * self.val
 
@@ -218,7 +218,7 @@ class PatchedGenerator(PatchSuite):
     class Meta:
         parent = NumberGenerator
 
-    @patch(wrapper_type=HookWrapper)
+    @patch(wrapper_type=wrappers.Hook)
     def generate_number(self, return_value):
         if return_value > 1000:
             BadValue.emit(return_value)
