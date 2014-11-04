@@ -51,6 +51,15 @@ class CollectPatchesMeta(type):
                     continue
                 yield name, value
 
+        # make clones if necessary so that all patches
+        # were different objects
+        _patches = []
+        for name, p in patches_dict.items():
+            if p in _patches:
+                patches_dict[name] = patch(p)
+            else:
+                _patches.append(p)
+
         for name, p in patches_dict.items():
             for attr, value in read_meta():
                 p.setdefault(attr, value)
@@ -81,8 +90,8 @@ class PatchSuite(metaclass=CollectPatchesMeta):
     def get_collected_patches(cls):
         if not cls.inherit_collected_patches:
             return cls.collected_patches
-        to_sum = (klass.__dict__.get('collected_patches', ())
-                  for klass in reversed(cls.__mro__))
+        to_sum = (klass.collected_patches for klass in reversed(cls.__mro__)
+                  if 'collected_patches' in klass.__dict__)
         return reduce(operator.add, to_sum)
 
     def __add__(self, other):
