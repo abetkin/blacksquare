@@ -1,5 +1,5 @@
-patched: use the localhost correctly!
-=====================================
+patched: 
+========
 
 ``patched`` is a mini-framework for patching with emphasis on simplicity, relative safety and human-oriented interface.
 In regard of patching,
@@ -10,5 +10,5 @@ Hopefully that features make it useful not only for patching, but also logging, 
 It aims to make equally easy to write a couple of throw-away patches and to store modules with debug patches
 (or mocks for local development) that others can use without looking at their code.
 
-[Documentation.](http://abetkin.github.io/patched)
+### [Examples](http://nbviewer.ipython.org/github/abetkin/patched/blob/master/patched.ipynb)
 
