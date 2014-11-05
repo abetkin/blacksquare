@@ -45,7 +45,7 @@ class DictAndObject(dict):
 
 class Storage(ThreadLocalMixin):
 
-    global_name = 'context'
+    global_name = 'storage'
 
     def __init__(self):
         self._dict = DictAndObject()
