@@ -3,23 +3,22 @@ import codecs
 import os
 import re
 
-import patched
-
-here = os.path.abspath(os.path.dirname(__file__))
-
 
 with codecs.open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
     name="patched",
+    install_requires=[
+        "IPython",
+    ],
 
     # There are various approaches to referencing the version. For a discussion,
     # see http://packaging.python.org/en/latest/tutorial.html#version
-    version=patched.__version__,
+    version=0.1,
 
     description="Smart patching, logging, debug",
-    long_description=long_description,
+    long_description='',
 
     # The project URL.
     url='https://github.com/abetkin/patched',
@@ -56,6 +55,4 @@ setup(
 
     # List run-time dependencies here.  These will be installed by pip when your
     # project is installed.
-    install_requires = [],
-
 )
