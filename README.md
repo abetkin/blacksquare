@@ -17,6 +17,8 @@ The package can be installed from PyPI but it's in active development and I'm af
 
     $ pip3 install -e git+git@github.com:abetkin/patched.git#egg=patched
 
+**Attention: currently works only with python 3**
+
 The package size is 600 SLOC so don't fear and have a look at the code!
 
 [Documentation.](http://nbviewer.ipython.org/github/abetkin/patched/blob/master/docs/main.ipynb)
