@@ -15,8 +15,6 @@ How to install
 
 The package can be installed from PyPI but it's in active development and I'm afraid it won't be updated frequently enough. So use
 
-.. code:: bash
-
     $ pip3 install -e git+git@github.com:abetkin/patched.git#egg=patched
 
 The package size is 600 SLOC so don't fear and have a look at the code!
