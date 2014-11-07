@@ -7,6 +7,12 @@ threadlocal = threading.local()
 # that allows to import such objects
 #
 class ThreadLocalMixin:
+    '''
+    Threadlocal object. Should define `global_name`.
+
+    `.instance()` returns the current instance, instantiating the class
+    makes a new one.
+    '''
 
     @classmethod
     def _get_instance(cls):

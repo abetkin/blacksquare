@@ -4,6 +4,9 @@ from ..core.objects import Logger
 
 @magics_class
 class BlackMagics(Magics):
+    '''
+    The `events` magics.
+    '''
 
     @line_magic
     def events(self, line):

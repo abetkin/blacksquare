@@ -5,6 +5,16 @@ from .events import ContextChange
 from . import wrappers
 
 class Patch(PrototypeMixin):
+    '''
+    All patches are instances of this class.
+
+    `parent` is the object being patched.
+    `.on()` sets the replacement callable instead of the original one,
+    `.off()` restores the initial state.
+
+    Delegates the creation of the replacement callable to the
+    wrapper class, which can be customized by passing `wrapper_type`.
+    '''
 
     parent = None
 
@@ -12,19 +22,18 @@ class Patch(PrototypeMixin):
 
     def __init__(self, attribute, parent=None,
                  prototype=None, **kwargs):
-        PrototypeMixin.__init__(self, prototype)
-        if kwargs:
-            # alternative to specifying parent object
-            self.published_context_extra = dict(
-                getattr(self, 'published_context_extra', ()),
-                **kwargs)
+        PrototypeMixin.__init__(self, prototype, **kwargs)
+        #if kwargs:
+        #    # alternative to specifying parent object
+        #    self.published_context_extra = dict(
+        #        getattr(self, 'published_context_extra', ()),
+        #        **kwargs)
         if parent:
             self.parent = parent
         assert self.parent is not None, "parent can't be None"
         self.attribute = attribute
         self.original = getattr(self.parent, self.attribute, None)
         self.wrapper = self.wrapper_type(prototype=self)(self.original)
-
 
     def on(self):
         setattr(self.parent, self.attribute, self.wrapper)
@@ -48,6 +57,9 @@ class Patch(PrototypeMixin):
 
 # ugly, just a proof of concept
 class SimpleConditionalPatch(Patch):
+    '''
+    Patch that gets enabled (and applied) on a certain event.
+    '''
 
     listen_to = ContextAttribute('listen_to', ContextChange)
 

@@ -6,6 +6,22 @@ from ..util import PrototypeMixin, ContextAttribute
 
 
 class Wrapper(PrototypeMixin):
+    '''
+    Base wrapper class. Usually subclasses just need to override the
+    `.run()` method.
+
+    Is responsible for making a wrapper callable with the same binding
+    behavior as the wrapped callable has.
+
+    The simplest use:
+
+    >>> @Wrapper(wrapper_func=lambda *a, **k: "i'm a wrapper")
+    ... def f(a, b):
+    ...     return a + b
+    ...
+    >>> f(3, 5)
+    "i'm a wrapper"
+    '''
 
     wrapper_func = ContextAttribute('wrapper_func')
 
@@ -27,12 +43,12 @@ class Wrapper(PrototypeMixin):
 
         @wraps(wrapped or self.wrapper_func)
         def func(*args, **kwargs):
-            patch = self._prototype_
-            patch.off()
+            patch = getattr(self, '_prototype_', None)
+            if patch: patch.off()
             try:
                 return self.run(*args, **kwargs)
             finally:
-                patch.on()
+                if patch: patch.on()
 
         if isinstance(__self__, type):
             func = classmethod(func)

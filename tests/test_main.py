@@ -6,8 +6,9 @@ import logging
 from patched import Config as BaseConfig
 from patched.core.events import Event
 
-from patched.patching import Patch, patch, SimpleConditionalPatch, PatchSuite
-from patched.patching import wrappers
+from patched.patching import Patch, patch, PatchSuite, wrappers
+
+from patched.patching.base import SimpleConditionalPatch
 from patched.patching.handlers import PatchSuitesStack, GlobalPatches
 from patched.patching.events import PatchSuiteStart, PatchSuiteFinish
 from patched import get_config, get_storage
@@ -15,6 +16,7 @@ from patched import get_config, get_storage
 from patched.core.objects import Logger
 
 from tests import utils as test_utils
+
 
 class Calculator:
 

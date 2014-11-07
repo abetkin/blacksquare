@@ -1,4 +1,4 @@
-__version__ = 0.1
+__version__ = '0.1'
 
 from .core.objects import Storage, Config, Logger
 

@@ -2,6 +2,15 @@ from ..core.threadlocal import ThreadLocalMixin
 
 #FIXME: Logger() on start
 class PatchSuitesStack(ThreadLocalMixin):
+    '''
+    Class contains handlers for starting and finishing the execution of
+    a suite with patches.
+
+    The implementation below is the recomended one and accumulates suites
+    with patches in a stack, when the suite execution finished, its patches
+    are unapplied and it is popped from the stack.
+    '''
+
     global_name = 'config.controller'
 
     def __init__(self):
@@ -21,6 +30,13 @@ class PatchSuitesStack(ThreadLocalMixin):
 
 
 class GlobalPatches(ThreadLocalMixin):
+    '''
+    Class contains handlers for starting and finishing the execution of
+    a suite with patches.
+
+    All patches are unapplied only when the last suite has finished execution.
+    '''
+
     global_name = 'config.controller'
 
     def __init__(self):

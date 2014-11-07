@@ -32,9 +32,13 @@ class _defaultdict(collections.defaultdict):
         return True
 
 class ObjectLookupPrinter(pretty.RepresentationPrinter):
-    # falling back to _repr_pretty_
+    '''
+    Unfortunately `_repr_pretty_` is a hardcoded name in ``pretty`` lib.
 
-    lookup_attribute='_repr_pretty'
+    Class allows to specify this method name with `lookup_attribute`.
+    '''
+
+    lookup_attribute='_repr_pretty_'
 
     def printer(self, obj, p, cycle):
         for cls in obj.__class__.__mro__:
@@ -96,12 +100,28 @@ def _dynamic_context_attribute(name, *default):
 # Logically a descriptor, probably sometimes will turn into a descriptor class -
 # hence the naming style.
 def ContextAttribute(name, *default, fixed=True):
+    '''
+    An attribute that is looked up in the context.
+    '''
     if  fixed:
         return _fixed_context_attribute(name, *default)
     return _dynamic_context_attribute(name, *default)
 
 
 class PrototypeMixin:
+    '''
+    Allows object to have a chain of "prototypes" that it can get
+    attributes from.
+
+    The attributes that prototype wants to contribute to context
+    should be "published" by adding their names to `published_context`
+    or defining the `published_context_extra` dictionary.
+
+    The object's namespace is not bloated from that: you should either
+    use `.get_from_context()` method or define a `ContextAttribute()` property:
+
+        some_attribute = ContextAttribute('some_attribute', 'default_value')
+    '''
 
     published_context = ()
 
@@ -128,7 +148,11 @@ class PrototypeMixin:
         raise AttributeError(attr)
 
 
-    def __init__(self, prototype=None):
+    def __init__(self, prototype=None, **kwargs):
         if prototype:
             self._prototype_ = prototype
+        if kwargs:
+            self.published_context_extra = dict(
+                getattr(self, 'published_context_extra', ()),
+                **kwargs)
 

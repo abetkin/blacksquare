@@ -10,13 +10,13 @@ class patch(DotAccessDict):
     '''
     Marks smth as a patch.
 
-    Can decorate a function::
+    Can decorate a function:
 
         @patch(**attrs)
         def marked_function(*a, **kw):
             pass
 
-    or be assigned to an attribute::
+    or be assigned to an attribute:
 
         marked_attr = patch(**attrs)
     '''
@@ -40,6 +40,14 @@ class patch(DotAccessDict):
 
 
 class CollectPatchesMeta(type):
+    '''
+    A metaclass that collects `patch` instances from the classdict
+    and puts them in `collected_patches` attribute, so that their names
+    won't collide with regular methods' names.
+
+    Keys that map to `patch` objects, are removed from `classdict`.
+    No other magic is involved.
+    '''
 
     def __new__(cls, name, bases, classdict):
         patches_dict = {name: value for name, value in classdict.items()
@@ -74,6 +82,9 @@ class CollectPatchesMeta(type):
 class PatchSuite(metaclass=CollectPatchesMeta):
     '''
     Container for patches.
+
+    `patches` iterable can be passed to constructor. Otherwise,
+    patches collected from the class declaration are used.
     '''
 
     inherit_collected_patches = True

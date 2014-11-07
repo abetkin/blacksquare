@@ -5,6 +5,12 @@ from .threadlocal import ThreadLocalMixin
 from IPython.lib import pretty
 
 class Event:
+    '''
+    Event class has handler functions registered for it
+    that get called when `Event.emit(*args, **kw)` is called.
+
+    The `Event` instance is _not_ created.
+    '''
 
     @classmethod
     def get_handlers(cls):
@@ -33,6 +39,11 @@ class Event:
 
 
 class LoggableEvent(Event):
+    '''
+    An event that will leave a record in the log.
+
+    The `Event` instance _is_ created.
+    '''
 
     def __init__(self, **kw):
         self.__dict__.update(kw)

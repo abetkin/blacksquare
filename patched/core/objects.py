@@ -6,6 +6,9 @@ from .threadlocal import ThreadLocalMixin
 from ..util import pretty_custom, ObjectLookupPrinter
 
 class Config(ThreadLocalMixin):
+    '''
+    The config threadlocal.
+    '''
 
     global_name = "config"
 
@@ -44,6 +47,19 @@ class DictAndObject(dict):
         self.__dict__ = self
 
 class Storage(ThreadLocalMixin):
+    '''
+    The storage threadlocal with a dict-like access.
+
+    Elements should have dot-separated names, so that they could be
+    organized into a tree:
+
+        storage['core.objects'] = ['Logger', 'Storage', 'Config']
+        storage['core.events'] = ['Event', 'LoggableEvent']
+
+        >>> storage['core']
+        {'objects': ['Logger', 'Storage', 'Config'],
+         'events': ['Event', 'LoggableEvent']}
+    '''
 
     global_name = 'storage'
 
@@ -72,6 +88,13 @@ class LogPrinter(ObjectLookupPrinter):
 logpretty = partial(pretty_custom, printer_class=LogPrinter)
 
 class Logger(ThreadLocalMixin):
+    '''
+    The logger threadlocal. Consists of records which are lists of
+    arbitrary objects.
+
+    Objects in a record can override their default string representation
+    with defined `_log_pretty_` method.
+    '''
     global_name = 'logger'
 
     def __init__(self):
@@ -79,9 +102,6 @@ class Logger(ThreadLocalMixin):
 
     def __iter__(self):
         return iter(self._list)
-
-    #def __nonzero__(self):
-    #    return bool(self._list)
 
     def __len__(self):
         return len(self._list)
@@ -111,9 +131,6 @@ class Logger(ThreadLocalMixin):
                     for item in line:
                         p.breakable()
                         p.text( logpretty(item))
-
-    #def _repr_pretty_(self, p, cycle):
-    #    p.text( logpretty(self))
 
     def append(self, obj):
         '''Append obj to current record.'''
