@@ -23,11 +23,6 @@ class Patch(PrototypeMixin):
     def __init__(self, attribute, parent=None,
                  prototype=None, **kwargs):
         PrototypeMixin.__init__(self, prototype, **kwargs)
-        #if kwargs:
-        #    # alternative to specifying parent object
-        #    self.published_context_extra = dict(
-        #        getattr(self, 'published_context_extra', ()),
-        #        **kwargs)
         if parent:
             self.parent = parent
         assert self.parent is not None, "parent can't be None"
