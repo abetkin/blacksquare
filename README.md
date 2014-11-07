@@ -15,7 +15,7 @@ It aims to make equally easy to write a couple of throw-away patches or to store
 
 The package can be installed from PyPI but it's in active development and I'm afraid it won't be updated frequently enough. So use
 
-    $ pip3 install -e git+git@github.com:abetkin/patched.git#egg=patched
+    $ pip install -e git+git@github.com:abetkin/patched.git#egg=patched
 
 **Attention: currently works only with python 3**
 
