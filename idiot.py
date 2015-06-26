@@ -7,11 +7,20 @@ class View(generics.CreateAPIView):
     
     # scrict / no strict
 
+
+
+
+#
+# Object -> Event
+#
+
+
+
 import Serializer
 
 class LinkMixin:
     
-    emit_event = True
+    emit_events = True
     
     def __new__(cls, *args, **kw):
         1
@@ -31,6 +40,14 @@ class Filter:
 '''
 Begin     __new__ ?
 Finish    result
+
+1) with stop(MyApp):
+    cli.get('url')
+2) loggin g <-> events
+n) debug toolvbar
+
+patching?  No need
+
 
 '''
     
